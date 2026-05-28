@@ -57,15 +57,16 @@ The detection is best-effort and may require the agent to read the actual conten
 **Recommendation template:**
 > {N} distinct persona labels detected for what may be one brand voice. Decide consciously: collapse to 1-3 personas, or document the intentional per-feature split. If unsure, the registry version of each persona is the authoritative source.
 
-## F6 — Hard-coded model identifier (with typo detection)
+## F6 — Hard-coded model identifier
 
 **Severity (default):** high
-**Detection:** for each `inventory.modelIdentifiers[*]`:
-- If `occurrences.length >= 2`: hardcoding finding.
-- If `value` doesn't match a known published model pattern (use a local list of known names: gemini-1.5-*, gemini-2.0-*, gemini-2.5-*, claude-3*, claude-opus-4*, claude-sonnet-4*, claude-haiku-4*, gpt-4*, gpt-3.5-*, o1-*, o3-*): suspect-model finding (separate, also high severity).
-**Evidence:** every occurrence (file + line) of the suspect identifier.
+**Detection:** for each `inventory.modelIdentifiers[*]`, if `occurrences.length >= 2`, fire a hardcoding finding.
+
+**Why no typo detection in v0.1.** An earlier draft of this rubric included a "suspect model" sub-finding that fired when the identifier didn't match a bundled known-models pattern list. This was removed after a cowpath calibration on Celestia3: model names ship faster than rubric updates, the bundled list went stale within a release cycle, and false positives erode audit trust. The cowpath audit incorrectly flagged `gemini-3.5-flash` as a typo when it is in fact a real Google model (declared in `@google/genai/dist/genai.d.ts` `Model_2` type union). Model-registry lookup belongs in v0.2 when the plugin can plumb a fresh source (context7, the `claude-api` skill, or a vendor's published-model API). Until then, F6 is a pure consolidation finding.
+
+**Evidence:** every occurrence (file + line) of the hardcoded identifier.
 **Recommendation template:**
-> Consolidate model identifier to one config source. {If suspect:} Verify what model Google's API actually serves when "{value}" is requested — likely a typo (closest published name: {nearest match}). Log an API response, confirm, then pick the intended name.
+> Consolidate model identifier `{value}` to one config source. It appears in {N} places ({file:line list}); when the model bumps, all sites have to move in lockstep and the type system can't catch a missed one. Create a single config module (e.g., `src/config/ai.ts`) exporting `DEFAULT_MODEL`; have client, server, and any service-layer defaults import from it.
 
 ## F7 — Hybrid call sites
 
