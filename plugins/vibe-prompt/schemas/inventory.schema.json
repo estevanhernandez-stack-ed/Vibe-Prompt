@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "vibe-prompt/inventory",
+  "type": "object",
+  "required": ["version", "scannedAt", "targetApp", "registry", "inlinePrompts", "personas", "modelIdentifiers"],
+  "properties": {
+    "version": { "type": "string", "const": "0.1" },
+    "scannedAt": { "type": "string", "format": "date-time" },
+    "targetApp": {
+      "type": "object",
+      "required": ["name", "stack", "aiProviders"],
+      "properties": {
+        "name": { "type": "string" },
+        "stack": { "type": "array", "items": { "type": "string" } },
+        "aiProviders": { "type": "array", "items": { "enum": ["gemini", "anthropic", "openai", "other"] } }
+      }
+    },
+    "registry": {
+      "type": "object",
+      "required": ["detected", "entries"],
+      "properties": {
+        "detected": { "type": "boolean" },
+        "location": { "type": ["string", "null"] },
+        "format": { "type": ["string", "null"] },
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "category", "version", "outputShape", "voiceBearing"],
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "category": { "type": "string" },
+              "version": { "type": "string" },
+              "outputShape": { "enum": ["prose", "json-object", "json-array", "multimodal-in"] },
+              "templatedVars": { "type": "array", "items": { "type": "string" } },
+              "voiceBearing": { "type": "boolean" },
+              "personaLabel": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
+    "inlinePrompts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "startLine", "endLine", "outputShape", "voiceBearing"],
+        "properties": {
+          "file": { "type": "string" },
+          "startLine": { "type": "integer" },
+          "endLine": { "type": "integer" },
+          "personaLabel": { "type": ["string", "null"] },
+          "outputShape": { "enum": ["prose", "json-object", "json-array", "multimodal-in"] },
+          "templatedVars": { "type": "array", "items": { "type": "string" } },
+          "voiceBearing": { "type": "boolean" },
+          "hasFallback": { "type": "boolean" },
+          "estimatedTokens": { "type": "integer" }
+        }
+      }
+    },
+    "personas": { "type": "array", "items": { "type": "string" } },
+    "modelIdentifiers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["value", "occurrences"],
+        "properties": {
+          "value": { "type": "string" },
+          "occurrences": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["file", "line"],
+              "properties": {
+                "file": { "type": "string" },
+                "line": { "type": "integer" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
