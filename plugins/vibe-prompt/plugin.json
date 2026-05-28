@@ -1,0 +1,9 @@
+{
+  "name": "vibe-prompt",
+  "version": "0.1.0",
+  "description": "Audit, organize, and classify the LLM prompts shipped in your app. Static inventory + 7-smell audit (F1-F7) over registry-tracked and inline prompt sites. TS/JS + Python coverage. No behavioral eval, no auto-mutation, no telemetry.",
+  "author": {
+    "name": "626Labs LLC",
+    "url": "https://github.com/estevanhernandez-stack-ed/Vibe-Prompt"
+  }
+}
