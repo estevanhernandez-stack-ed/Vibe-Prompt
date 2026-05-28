@@ -1,0 +1,4 @@
+node_modules/
+.vibe-prompt/
+*.log
+.DS_Store
