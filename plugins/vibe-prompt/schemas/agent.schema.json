@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "vibe-prompt/eval-agent",
+  "type": "object",
+  "required": ["version", "name", "model", "detectedAt", "detectionMethod"],
+  "properties": {
+    "version": { "type": "string", "const": "0.1" },
+    "name": { "type": "string" },
+    "model": { "type": "string" },
+    "vendor": { "type": "string" },
+    "detectedAt": { "type": "string", "format": "date-time" },
+    "detectionMethod": { "enum": ["env-var", "marker-file", "process-inspection", "user-declared"] }
+  }
+}

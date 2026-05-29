@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "vibe-prompt/eval-composer",
+  "type": "object",
+  "required": ["version", "kind", "layers"],
+  "properties": {
+    "version": { "type": "string", "const": "0.1" },
+    "kind": { "enum": ["identity", "stacked"] },
+    "sourceFile": { "type": ["string", "null"] },
+    "layers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "text"],
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "enum": ["literal", "directive-field", "knowledge-injection", "task-instruction", "conditional"] },
+          "text": { "type": "string" },
+          "condition": { "type": ["string", "null"] },
+          "order": { "type": "integer" }
+        }
+      }
+    }
+  }
+}

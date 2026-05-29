@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "vibe-prompt/eval-run-result",
+  "type": "object",
+  "required": ["version", "runId", "startedAt", "completedAt", "mode", "agentIdentity", "prompts", "summary"],
+  "properties": {
+    "version": { "type": "string", "const": "0.1" },
+    "runId": { "type": "string" },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "completedAt": { "type": "string", "format": "date-time" },
+    "mode": { "enum": ["drift", "upgrade-test"] },
+    "candidateModel": { "type": ["string", "null"] },
+    "agentIdentity": {
+      "type": "object",
+      "required": ["name", "model"],
+      "properties": {
+        "name": { "type": "string" },
+        "model": { "type": "string" }
+      }
+    },
+    "prompts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "fixture", "outputs", "comparator"],
+        "properties": {
+          "id": { "type": "string" },
+          "source": { "type": "string" },
+          "fixture": {
+            "type": "object",
+            "required": ["origin", "data"],
+            "properties": {
+              "origin": { "enum": ["synthesized", "user-provided"] },
+              "data": {}
+            }
+          },
+          "outputs": {
+            "type": "object",
+            "properties": {
+              "prod": {
+                "type": "object",
+                "required": ["model", "text", "tokens", "costUsd"],
+                "properties": {
+                  "model": { "type": "string" },
+                  "text": { "type": "string" },
+                  "tokens": { "type": "integer" },
+                  "costUsd": { "type": "number" },
+                  "error": { "type": ["string", "null"] }
+                }
+              },
+              "baseline": {
+                "type": "object",
+                "properties": {
+                  "model": { "type": "string" },
+                  "text": { "type": "string" },
+                  "tokens": { "type": "integer" },
+                  "costUsd": { "type": "number" },
+                  "error": { "type": ["string", "null"] }
+                }
+              }
+            }
+          },
+          "comparator": {
+            "type": "object",
+            "required": ["mechanical", "llmJudge"],
+            "properties": {
+              "mechanical": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["check", "severity", "fired"],
+                  "properties": {
+                    "check": { "type": "string" },
+                    "severity": { "enum": ["high", "medium", "low"] },
+                    "fired": { "type": "boolean" },
+                    "detail": { "type": "string" }
+                  }
+                }
+              },
+              "llmJudge": {
+                "type": "object",
+                "properties": {
+                  "skipped": { "type": "boolean" },
+                  "findings": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["category", "severity", "text"],
+                      "properties": {
+                        "category": { "type": "string" },
+                        "severity": { "enum": ["high", "medium", "low"] },
+                        "text": { "type": "string" }
+                      }
+                    }
+                  },
+                  "evaluatorDriftWarning": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["totalPrompts", "totalCostUsd", "highSeverityCount"],
+      "properties": {
+        "totalPrompts": { "type": "integer" },
+        "totalCostUsd": { "type": "number" },
+        "highSeverityCount": { "type": "integer" },
+        "abortedByCostCeiling": { "type": "boolean" }
+      }
+    }
+  }
+}
