@@ -60,6 +60,21 @@
               }
             }
           },
+          "evalGrade": {
+            "type": "object",
+            "properties": {
+              "composite": { "type": "integer", "minimum": 1, "maximum": 10 },
+              "dimensions": {
+                "type": "object",
+                "properties": {
+                  "schemaTightness": { "type": "integer", "minimum": 1, "maximum": 10 },
+                  "personaConsistency": { "type": "integer", "minimum": 1, "maximum": 10 },
+                  "instructionClarity": { "type": "integer", "minimum": 1, "maximum": 10 },
+                  "tokenEfficiency": { "type": "integer", "minimum": 1, "maximum": 10 }
+                }
+              }
+            }
+          },
           "comparator": {
             "type": "object",
             "required": ["mechanical", "llmJudge"],
@@ -89,11 +104,32 @@
                       "properties": {
                         "category": { "type": "string" },
                         "severity": { "enum": ["high", "medium", "low"] },
-                        "text": { "type": "string" }
+                        "text": { "type": "string" },
+                        "strengths": { "type": "array", "items": { "type": "string" } },
+                        "weaknesses": { "type": "array", "items": { "type": "string" } },
+                        "reasoning": { "type": "string" },
+                        "scores": {
+                          "type": "object",
+                          "properties": {
+                            "schemaTightness": { "type": "integer", "minimum": 1, "maximum": 10 },
+                            "personaConsistency": { "type": "integer", "minimum": 1, "maximum": 10 },
+                            "instructionClarity": { "type": "integer", "minimum": 1, "maximum": 10 },
+                            "tokenEfficiency": { "type": "integer", "minimum": 1, "maximum": 10 }
+                          }
+                        }
                       }
                     }
                   },
-                  "evaluatorDriftWarning": { "type": "string" }
+                  "evaluatorDriftWarning": { "type": "string" },
+                  "swapAndDiscard": {
+                    "type": "object",
+                    "properties": {
+                      "enabled": { "type": "boolean" },
+                      "tiedAndDiscarded": { "type": "boolean" },
+                      "originalOrderJudgmentSummary": { "type": "string" },
+                      "swappedOrderJudgmentSummary": { "type": "string" }
+                    }
+                  }
                 }
               }
             }
