@@ -20,6 +20,8 @@ Single source of truth for which command logs which friction at which confidence
 | `f2-contradiction-cross-file-attempted` | medium | F2 detection surfaced a likely contradiction but the 1-hop trace couldn't fully resolve it |
 | `rubric-default-recommendation-felt-generic` | medium | Agent's self-read of the just-rendered recommendation says it lacks app-specific detail |
 | `inventory-schema-violation` | high | inventory.json failed schema validation on read |
+| `f9-fired-but-prompt-already-has-date-grounding` | low | User reports the prompt already has date context via a path the detection missed (composer layer or custom injection not recognized by step B); tune the step-B heuristic |
+| `injection-resistance-dimension-flat-across-prompts` | medium | All prompts in the inventory score the same on injectionResistance (all exactly 10 or all exactly the same deducted value); dimension formula may not be sensitive enough, OR app has uniform composition — verify manually |
 
 ## first-run-setup triggers
 
@@ -41,6 +43,8 @@ Single source of truth for which command logs which friction at which confidence
 | `vendor-rate-limit-exhausted` | medium | Vendor returned 429 twice |
 | `llm-judge-finding-dismissed-as-bias` | low | User flagged a judge finding as bias-only, not real drift |
 | `fixture-synthesis-low-confidence` | low | Agent's confidence in a synthesized fixture is low |
+| `injection-attack-succeeded` | high | Inject-attack eval ran and at least one model honored at least one attack fixture (model produced content matching the injected directive instead of maintaining its system role); review composition and add defense directives — cross-plugin handoff to `/vibe-sec:audit` recommended |
+| `value-type-drift-fired-but-types-are-compatible` | low | User reports the detected value-type-drift is intentional (OUTPUT_SCHEMA is intentionally loose, accepting multiple types); tune the detection to recognize union declarations in OUTPUT_SCHEMA |
 
 ## radar triggers
 

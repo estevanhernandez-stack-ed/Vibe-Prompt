@@ -18,6 +18,15 @@ All six step-commands contribute to these logs: scan, audit, eval, radar, grade,
 
 Grade-side friction triggers (weight overrides, regression handling, Swap-and-Discard tie rates) map to the `vibe-prompt:grade` SKILL and `references/scoring-dimensions.md` or `references/composite-formula.md` for proposed changes. Iterate-side friction triggers (off-domain suggestions, implemented suggestions) map to the `vibe-prompt:iterate` SKILL and `references/domain-detection.md` or `references/creative-discovery-prompt.md`.
 
+**v0.4 trigger handler templates** — four new triggers added in v0.4 and their canonical change targets:
+
+| Trigger code | Confidence | Handler: what to propose |
+|---|---|---|
+| `injection-attack-succeeded` | high | Map to `audit/SKILL.md` F10-F12 detection + `eval/references/inject-attack-fixtures.md`. Propose: (a) tighter defense-phrase matching in F11, OR (b) new fixture pattern added to the fixture library if the attack vector is novel, OR (c) weight increase for injectionResistance dimension in `audit/references/scoring-dimensions.md`. |
+| `f9-fired-but-prompt-already-has-date-grounding` | low | Map to `audit/SKILL.md` step 4b (F9 detection, step B). Propose: extend step B's composition-stack temporal anchor heuristic to recognize the path the detection missed (e.g., a non-standard marker phrase or an indirect injection pattern). Low confidence — confirm with the user which path was missed before drafting the diff. |
+| `value-type-drift-fired-but-types-are-compatible` | low | Map to `eval/references/mechanical-comparator.md` value-type-drift section. Propose: add a union-type escape hatch that reads OUTPUT_SCHEMA's union declarations before firing the check. Low confidence — require the user to provide the specific OUTPUT_SCHEMA that defines the union so the proposed detection rule is concrete. |
+| `injection-resistance-dimension-flat-across-prompts` | medium | Map to `audit/references/scoring-dimensions.md` injectionResistance dimension definition. Propose: review score-impact calibration for F10-F12 (are the deductions large enough to differentiate?) OR flag that the app may genuinely have uniform composition (all prompts have zero user-input vars — expected flat score, not a calibration gap). Surface both hypotheses; let the user pick. |
+
 ## Workflow
 
 1. **Pre-flight.** session-logger start. If `sessions.jsonl` has zero entries in the window, friction-log `no-sessions-in-30-days` and exit.
