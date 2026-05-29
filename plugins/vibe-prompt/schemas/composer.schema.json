@@ -7,6 +7,8 @@
     "version": { "type": "string", "const": "0.1" },
     "kind": { "enum": ["identity", "stacked"] },
     "sourceFile": { "type": ["string", "null"] },
+    "globalConfidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "regenerationSource": { "enum": ["manual", "auto-detected", "hybrid"] },
     "layers": {
       "type": "array",
       "items": {
@@ -17,7 +19,8 @@
           "type": { "enum": ["literal", "directive-field", "knowledge-injection", "task-instruction", "conditional"] },
           "text": { "type": "string" },
           "condition": { "type": ["string", "null"] },
-          "order": { "type": "integer" }
+          "order": { "type": "integer" },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
         }
       }
     }
