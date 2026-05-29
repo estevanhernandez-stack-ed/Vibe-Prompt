@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "vibe-prompt/remediate-result",
+  "$defs": {
+    "diff": {
+      "type": "object",
+      "required": ["findingId", "findingCategory", "confidence", "targetFile"],
+      "properties": {
+        "findingId": { "type": "string" },
+        "findingCategory": { "enum": ["A", "B", "C"] },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "targetFile": { "type": "string" },
+        "targetRange": { "type": "string" },
+        "backupPath": { "type": "string" },
+        "diffBody": { "type": "string" },
+        "appliedAt": { "type": "string", "format": "date-time" },
+        "stagedPath": { "type": "string" },
+        "postApplyRecommendation": { "type": "string" },
+        "versionBumpRequired": { "type": "boolean" },
+        "suggestedVersion": { "type": "string" }
+      }
+    },
+    "f12Handoff": {
+      "type": "object",
+      "required": ["promptId", "composerPath"],
+      "properties": {
+        "promptId": { "type": "string" },
+        "composerPath": { "type": "string" },
+        "banner": { "type": "string" },
+        "severity": { "enum": ["critical", "high"] }
+      }
+    }
+  },
+  "type": "object",
+  "required": [
+    "runId",
+    "timestamp",
+    "auditRunId",
+    "totalFindings",
+    "diffsByCategory",
+    "appliedDiffs",
+    "stagedDiffs",
+    "inlineOnlyDiffs"
+  ],
+  "properties": {
+    "runId": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "auditRunId": { "type": "string" },
+    "totalFindings": { "type": "integer", "minimum": 0 },
+    "diffsByCategory": {
+      "type": "object",
+      "properties": {
+        "categoryA": { "type": "integer", "minimum": 0 },
+        "categoryB": { "type": "integer", "minimum": 0 },
+        "categoryC": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "appliedDiffs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diff" }
+    },
+    "stagedDiffs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diff" }
+    },
+    "inlineOnlyDiffs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diff" }
+    },
+    "f12HandoffsEmitted": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/f12Handoff" }
+    },
+    "backupBatchPath": { "type": "string" },
+    "flags": {
+      "type": "object",
+      "properties": {
+        "autoApply": { "type": "boolean" },
+        "interactive": { "type": "boolean" },
+        "skipF12": { "type": "boolean" },
+        "applyContradictions": { "type": "boolean" }
+      }
+    }
+  }
+}
