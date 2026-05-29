@@ -1,5 +1,54 @@
 # Changelog
 
+## [0.4.0] — 2026-05-29
+
+Three additive capabilities. No breaking changes to v0.3 commands or surface area.
+
+### Added
+
+- **F9 — Date-grounding static check.** Fires on prompts that handle date-related inputs (birth dates, transit windows, current time references) but lack a temporal anchor in the composition stack. Detection is keyword regex + templated var names; no LLM call. Severity: high. Score impact: instruction-clarity −3, schema-tightness −1.
+
+- **value-type-drift mechanical check.** New check in the eval mechanical comparator (between schema-shape and length-delta). Catches when a key's value type in prod or baseline output differs from the OUTPUT_SCHEMA declaration, even when the key is present. Covers the case that keyword-set checks pass but value shape doesn't (e.g., Gemini emitting `array<object>` when schema declares `string`). Fires `value-type-drift` or `value-type-drift-both` (both outputs differ from declared type).
+
+- **Prompt-injection vulnerability grading.** Fifth scoring dimension (`injectionResistance`, 1-10, default weight 0.20) + three new audit findings + active inject-attack eval mode:
+  - **F10 (high)** — user-input var without sanitization directive. Score impact: injectionResistance −4, instruction-clarity −1.
+  - **F11 (medium)** — defense-in-depth scarcity (< 2 defense phrases when user-input var detected). Score impact: injectionResistance −2.
+  - **F12 (critical)** — user-var injection layer at or before system-instruction layer in composer order. Score impact: injectionResistance −6, persona-consistency −2. Severity degrades to `high` when composer-mimic confidence < 0.6.
+  - **F10, F11, F12** all carry `handoffHint: "vibe-sec:audit"` for cross-plugin app-level review.
+  - **`--inject-attacks` eval flag** — after the standard prod + baseline + judge pipeline, substitutes 6 canonical injection patterns (direct-override, role-assertion, role-flip, instruction-deflection, trust-manipulation, encoded-payload) into each user-input var. Binary LLM-judge determines honor-vs-resist per fixture. Results in `injectAttackResults` + `injectAttackSummary`. Cost-gated; estimated cost shown before running ($0.001/fixture pair, typically <$0.01 for cowpath scope).
+  - **App-type weight heuristic** — audit detects consumer-facing apps and suggests `injectionResistance` weight 2× (consumer) or 0.5× (internal). Advisory; confirmed before write.
+  - **Router v0.4 branch** — bare `/vibe-prompt` router detects non-empty `injectAttackResults` in latest eval state and surfaces attack summary + next-action menu (review fixtures, dispatch evolve-prompt, run vibe-sec handoff).
+
+- **4 new friction triggers:** `injection-attack-succeeded` (high), `f9-fired-but-prompt-already-has-date-grounding` (low), `value-type-drift-fired-but-types-are-compatible` (low), `injection-resistance-dimension-flat-across-prompts` (medium). Each maps to a concrete handler template in `evolve-prompt/SKILL.md`.
+
+### Changed
+
+- `:audit` now applies F1-F12 (was F1-F7 in v0.3, F1-F9 partially in interim builds).
+- Per-prompt scoring extended from 4 dimensions to 5 (adds `injectionResistance`). Audit report template adds `InjectionRes` column.
+- `:eval` mechanical comparator adds value-type-drift check between schema-shape and length-delta sections.
+- Guide SKILL adds "Prompt-injection vulnerability grading (v0.4)" section covering the full F10-F12 family, eval mode, handoff, and weight heuristic.
+- Audit report template updated: 5-column per-prompt scores table, F9-F12 render templates, cross-plugin handoff note in recommended-sequence section.
+- Router extended with branch 3b (review-injection-attack-results).
+- smell-rubric renamed `smell-rubric-f1-f7.md` → `smell-rubric-f1-f12.md` (done in earlier phases).
+
+### Schema changes
+
+- `audit.schema.json` — `findings[].id` enum extended to F9-F12; `findings[].handoffHint` optional string; `auditGrade.perPrompt.dimensions.injectionResistance` added; `auditGrade.suggestedWeightOverrides[]` extended with `rationale` and `appTypeSignal`.
+- `run-result.schema.json` — `injectAttackResults` (optional array) + `injectAttackSummary` (optional object) added; `evalGrade.dimensions.injectionResistance` added; mechanical-finding `category` enum extended with `value-type-drift` + `value-type-drift-both`.
+- `grade-result.schema.json` — `perPrompt.composite.dimensions` + `perPrompt.composite.weights` + `appComposite.dimensions` extended with `injectionResistance`.
+- `baseline.schema.json` — `perPrompt.bestScores.injectionResistance` added.
+- `config.schema.json` — `eval.injectAttack.*` section added (enabled, fixtures, costCeiling); `audit.injectionResistance.userInputVars` extension point added.
+- `inject-attack-fixture.schema.json` — NEW schema (6-field fixture definition).
+
+### Migration notes
+
+- **No breaking changes.** All v0.3 commands, schemas, and state files remain valid.
+- **4-dimension `weights.json` files auto-normalize to 5 dimensions.** Existing `.vibe-prompt/grade/weights.json` with 4 dimension entries (summing to 1.0) are automatically extended: the agent distributes the 5th dimension weight (0.20) by proportionally reducing the other four. No manual update needed. The first `:grade` run after upgrade writes the normalized 5-dim weights.
+- **`injectionResistance` column is omitted for pre-v0.4 state files.** If `audit.json` has no `injectionResistance` in `auditGrade.perPrompt.dimensions`, the audit report renders `—` in that column. No error.
+- **`--inject-attacks` is opt-in.** Existing `:eval` invocations without the flag are unchanged.
+
+---
+
 ## v0.3.0 — 2026-05-29
 
 Per-dimension scoring, composite grades, monotonic baseline regression tracking, and creative prompt discovery.
