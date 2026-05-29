@@ -33,7 +33,7 @@ Load `vibe-prompt:guide` first. Then load `references/composer-mimic.md`, `refer
 
 3. **Compose prompts.** For each (prompt, fixture) pair, apply `references/composer-mimic.md` to produce the composed system prompt + user content.
 
-4. **Cost estimate.** Per `references/cost-gates.md` (in the guide), tally projected tokens and dollars. Present the estimate. Wait for user confirm.
+4. **Cost estimate.** Per the cost-gate rules in `vibe-prompt:guide`, tally projected tokens and dollars. Present the estimate. Wait for user confirm.
 
 5. **Execute eval.** For each (prompt, fixture):
    - Call prod model via `GeminiClient` (or appropriate vendor) per `references/vendor-clients.md`. Update running cost.

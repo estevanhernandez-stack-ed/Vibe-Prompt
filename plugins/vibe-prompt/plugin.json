@@ -1,7 +1,7 @@
 {
   "name": "vibe-prompt",
-  "version": "0.1.0",
-  "description": "Audit, organize, and classify the LLM prompts shipped in your app. Static inventory + 7-smell audit (F1-F7) over registry-tracked and inline prompt sites. TS/JS + Python coverage. No behavioral eval, no auto-mutation, no telemetry.",
+  "version": "0.2.0",
+  "description": "Audit, organize, and classify the LLM prompts shipped in your app. Static inventory + 7-smell audit (F1-F7) + behavioral drift testing with cross-vendor evaluator-drift warnings + model-news radar. /vibe-prompt:scan inventories every prompt site; /vibe-prompt:audit fires structural findings; /vibe-prompt:eval runs prompts against the prod model and an in-session Claude baseline, surfacing semantic drift with explicit evaluator-bias caveats; /vibe-prompt:radar tracks what's new in the model space for your vendors. TS/JS + Python coverage. Env-var-only key handling; composes with vibe-sec. Validated on Celestia3 (Next.js + Firebase + Gemini).",
   "author": {
     "name": "626Labs LLC",
     "url": "https://github.com/estevanhernandez-stack-ed/Vibe-Prompt"
