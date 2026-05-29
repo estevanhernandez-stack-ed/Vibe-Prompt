@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "vibe-prompt/eval-config",
+  "type": "object",
+  "required": ["version", "vendors", "costCeiling"],
+  "properties": {
+    "version": { "type": "string", "const": "0.1" },
+    "vendors": {
+      "type": "object",
+      "properties": {
+        "gemini": {
+          "type": "object",
+          "required": ["defaultModel"],
+          "properties": {
+            "defaultModel": { "type": "string" },
+            "fallbackModel": { "type": ["string", "null"] }
+          }
+        },
+        "anthropic": {
+          "type": "object",
+          "properties": {
+            "defaultModel": { "type": "string" }
+          }
+        },
+        "openai": {
+          "type": "object",
+          "properties": {
+            "defaultModel": { "type": "string" }
+          }
+        }
+      }
+    },
+    "costCeiling": { "type": "number", "minimum": 0 },
+    "fixturePath": { "type": "string" }
+  }
+}
