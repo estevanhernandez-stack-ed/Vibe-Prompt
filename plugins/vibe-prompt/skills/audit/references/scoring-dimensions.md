@@ -56,6 +56,28 @@ Per prompt: weighted average with default equal weights (0.25 each per dimension
 
 Per app: average of per-prompt composites across the inventory.
 
+**Floor at 1:** no dimension goes below 1, regardless of how many findings stack.
+
+## F-finding score impacts (audit)
+
+Each fired finding applies deductions per the list below. Deductions stack: if two findings both penalize instruction-clarity, apply both. Floor at 1 after all deductions.
+
+| Finding | Severity | instruction-clarity | schema-tightness | persona-consistency | token-efficiency |
+|---------|----------|---------------------|------------------|---------------------|-----------------|
+| F1      | high     | −1                  | —                | —                   | −2              |
+| F1b     | advisory | —                   | −2               | —                   | —               |
+| F2      | high     | —                   | —                | −4                  | —               |
+| F3      | medium   | −2                  | —                | —                   | —               |
+| F4      | high     | −2                  | −3               | —                   | —               |
+| F5      | low      | —                   | —                | −2                  | −1              |
+| F6      | high     | −1                  | —                | —                   | —               |
+| F7      | medium   | —                   | —                | —                   | −1              |
+| **F9**  | **high** | **−3**              | **−1**           | —                   | —               |
+
+**F9 rationale:** a prompt handling dates without temporal grounding gives the model instructions that are ambiguous relative to real-world time. The model's training cutoff becomes an invisible and wrong "current date." instruction-clarity penalty is −3 (high) because the ambiguity is structural. schema-tightness penalty is −1 because the missing temporal anchor implies the output schema can't be reliably satisfied when dates matter.
+
+F10, F11, F12 impacts are Phase 4 (injectionResistance dimension — not yet active in v0.4 Phase 2).
+
 ## Agent-suggested weight overrides
 
 When the plugin detects a dimension is brand-load-bearing for the app, it proactively suggests an override. Heuristics:
