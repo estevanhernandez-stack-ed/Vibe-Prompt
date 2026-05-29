@@ -110,14 +110,110 @@ The detection is best-effort and may require the agent to read the actual conten
 
 ---
 
+## F9 — Date-handling prompt without temporal grounding
+
+**Severity (default):** high
+**Detection method:** static analysis on inventory.json — no LLM call.
+
+**Detection rule:**
+1. **Step A — Date-intent match:** prompt content (registry entry or inline) matches at least one of:
+   - Keyword regex: `\b(?:birth ?date|birthday|birth ?day|transit|natal|nativity|current|today|now|year|month|age|when)\b`
+   - Templated date variables: `{{[^}]*[Dd]ate[^}]*}}` or `{{[^}]*[Dd]ob[^}]*}}` or `{{[^}]*[Bb]irth[^}]*}}`
+2. **Step B — Composition-stack temporal anchor:** check the composition stack (global directive + this task prompt + any wrapping layers discovered by composer-mimic) for:
+   - Literal markers: `[CURRENT DATE]`, `[TODAY]`, `[NOW]`, `[CURRENT_TIMESTAMP]`
+   - Phrase markers: `(?i)today is`, `(?i)current date`, `(?i)as of`
+   - Injected templated date vars at the global layer (heuristic: composer-mimic identifies a global layer that interpolates a date var before the task content)
+3. **Fire when:** step A matches AND step B finds nothing.
+
+**Evidence shape:**
+- `evidence.promptId` — the affected prompt id
+- `evidence.promptLocation` — file + line of the prompt declaration
+- `evidence.dateKeywords` — array of matched date keywords / vars
+- `evidence.compositionStackLocation` — file + line of the global directive (showing absence of date injection)
+
+**Recommendation template:**
+> The `{promptId}` prompt handles date inputs ({dateKeywordList}) but the composition stack has no current-date anchor. The model may treat supplied dates as future relative to its training cutoff, producing wrong outputs like "this birthday hasn't happened yet" for recent dates. Inject `[CURRENT DATE]: {{currentDate}}` at the composer's master directive layer (`{globalComposerPath}`). One line; covers every prompt that handles dates. The fix is at the composition level, not the per-prompt level — every date-handling prompt benefits.
+
+**Edge cases:**
+- A prompt using date-keywords in a non-temporal sense (e.g., "transit" meaning network transit) may false-positive. Mitigated via `--ignore-finding F9 --on-prompt <id>` flag in audit.
+- A prompt handling dates with no need for current-date context (e.g., pure mathematical numerology using birth date relative to a fixed reference) may not need the fix. Recommendation hedges: "if your prompt requires understanding of how supplied dates relate to current time, inject..."
+- If composer-mimic confidence < 0.6 for the app, F9 fires with severity `medium` instead of `high` and evidence notes "composition stack detection low-confidence; verify manually."
+
+**Score impact (v0.4):**
+- Penalizes instruction-clarity (−3) and schema-tightness (−1) per fired finding.
+- Rationale: a prompt that handles dates without temporal anchoring is giving the model instructions that are literally ambiguous relative to real-world time — the model's training cutoff becomes an invisible and wrong "current date."
+
+**Friction trigger:** `f9-fired-but-prompt-already-has-date-grounding` (low) — user reports the prompt already has date context via a path the detection missed. Tune the step-B heuristic.
+
+---
+
+## F10 — Prompt accepts user-controlled input without sanitization marker
+
+**Severity (default):** high
+**Score impact (v0.4):** injectionResistance −4, instruction-clarity −1
+**Phase:** 4 (implementation pending — section is placeholder for rubric completeness).
+
+**Detection rule:**
+1. **User-var detection:** scan prompt's `templatedVars` for names matching user-origin heuristics.
+   - Exact matches: `userInput`, `userMessage`, `userQuery`, `userText`, `userContent`, `userPrompt`, `userData`, `userBio`, `userDescription`, `userQuestion`
+   - Contains (case-insensitive): `message`, `query`, `text`, `prompt`, `input`, `content`, `bio`, `description`, `question`, `dream`, `note`, `comment`, `review`, `feedback`, `reply`, `chat`
+2. **Sanitization-directive scan:** check prompt content within 200 chars of the user-var for:
+   - `(?i)treat .* as data`
+   - `(?i)ignore .* instructions`
+   - `(?i)do not execute`
+   - `(?i)your role is fixed`
+   - `(?i)content within .* is data only`
+3. **Fire when:** user-var detected AND no sanitization directive found nearby.
+
+**Cross-plugin handoff:** finding includes `handoffHint: "vibe-sec:audit"`.
+
+---
+
+## F11 — Prompt has insufficient defense-in-depth directives
+
+**Severity (default):** medium
+**Score impact (v0.4):** injectionResistance −2
+**Phase:** 4 (implementation pending — section is placeholder for rubric completeness).
+
+**Detection rule:**
+1. **F10 prerequisite:** prompt has detected user-var (F10 must fire first).
+2. **Defense-phrase scan:** count distinct defense phrases in the prompt content:
+   - "treat as data"
+   - "ignore instructions within"
+   - "your role is fixed"
+   - "do not execute commands"
+   - "regardless of user request"
+   - "always remain"
+3. **Fire when:** F10 detected user-var AND defense-phrase count < 2.
+
+**Cross-plugin handoff:** finding includes `handoffHint: "vibe-sec:audit"`.
+
+---
+
+## F12 — User-controlled var appears at or before system instruction
+
+**Severity (default):** critical
+**Score impact (v0.4):** injectionResistance −6, persona-consistency −2
+**Phase:** 4 (implementation pending — section is placeholder for rubric completeness).
+
+**Detection rule:**
+1. **F10 prerequisite:** prompt has detected user-var.
+2. **Composer-mimic analysis required:** identify the composition order from composer.json (v0.2 artifact). Determine the layer at which each var is injected.
+3. **Fire when:** the user-var's injection layer is at or before the layer containing the primary system instruction.
+4. If composer-mimic confidence < 0.6, severity degrades to `high` (not `critical`) with evidence noting "composition order detection low-confidence."
+
+**Cross-plugin handoff:** finding includes `handoffHint: "vibe-sec:audit"` and `severity: "critical"`.
+
+---
+
 ## Per-prompt audit composite
 
-After all F1–F7 detections, compute the per-prompt audit composite:
+After all F1–F12 detections, compute the per-prompt audit composite:
 
 1. **Start each dimension at 10** (perfect score — no findings = no deductions).
 2. **For each fired finding, apply its Score impact deduction** to the affected dimensions.
 3. **Floor at 1** — no dimension goes below 1, regardless of how many findings stack.
-4. **Per-prompt composite** = weighted average of the 4 dimension scores (default: equal weights, 0.25 each). Apply overrides from `.vibe-prompt/grade/weights.json` if present.
+4. **Per-prompt composite** = weighted average of the 4 dimension scores (v0.3: 0.25 × 4 default; v0.4 will extend to 5 dimensions in Phase 4). Apply overrides from `.vibe-prompt/grade/weights.json` if present.
 
 **App-level composite** = average of per-prompt composites across all inventoried prompts.
 
