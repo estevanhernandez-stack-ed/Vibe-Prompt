@@ -30,6 +30,19 @@ The audit SKILL renders findings into a dated markdown file at `docs/vibe-prompt
 
 ---
 
+## Per-prompt scores
+
+| Prompt | Schema | Persona | Clarity | Tokens | Composite |
+|---|---|---|---|---|---|
+{for each prompt in audit.auditGrade.perPrompt}
+| {prompt.id} | {indicator(prompt.dimensions.schemaTightness)} {prompt.dimensions.schemaTightness} | {indicator(prompt.dimensions.personaConsistency)} {prompt.dimensions.personaConsistency} | {indicator(prompt.dimensions.instructionClarity)} {prompt.dimensions.instructionClarity} | {indicator(prompt.dimensions.tokenEfficiency)} {prompt.dimensions.tokenEfficiency} | {indicator(prompt.composite)} {prompt.composite} |
+
+**App composite:** {audit.auditGrade.appComposite} / 10
+
+Emoji indicators: ✓ = 9–10 (healthy), · = 5–8 (watch), ⚠ = 1–4 (needs attention)
+
+---
+
 ## Recommended sequence of fixes
 
 {prioritize by: severity × estimated effort. Default ordering — F6 verify first (cheapest), then F4, then F2+F3+F5 together, then F1, then F7. Adjust per app.}
@@ -56,3 +69,5 @@ The audit SKILL renders findings into a dated markdown file at `docs/vibe-prompt
 - Recommendation prose must be specific to the target app — fill in the recommendation template variables from inventory data, do not leave placeholders.
 - The "Recommended sequence" section orders by `severity × cheapness`. F6 verify-model is always first if F6 fired (5-minute test, highest signal).
 - Never invent findings not in `audit.json`. The report is a render of the state file; the state file is the source of truth.
+- **Score indicator helper** — `indicator(n)`: returns ✓ if n ≥ 9, · if 5 ≤ n ≤ 8, ⚠ if n ≤ 4. Apply to every score cell in the Per-prompt scores table.
+- The Per-prompt scores section is omitted if `audit.auditGrade` is absent (e.g., a v0.2-era state file with no scoring data).
