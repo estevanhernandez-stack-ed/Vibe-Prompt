@@ -64,6 +64,43 @@ v0.4 adds a fifth scoring dimension and three new audit findings that cover LLM-
 
 **5th dimension weight redistribution:** v0.3 used 0.25 × 4 = 1.0. v0.4 default is 0.20 × 5 = 1.0. Existing `weights.json` files with 4-dimension entries auto-normalize — no manual migration needed.
 
+## Remediating findings (v0.5)
+
+`/vibe-prompt:remediate` closes the audit → fix loop. It is the sixth step-command in the pipeline. The recommended workflow is `:scan → :audit → :eval → :grade → :remediate → :eval` — remediate sits AFTER you've grounded yourself in what's actually broken (audit + eval) and how it's scoring (grade), so the proposed diffs are anchored in observed regression, not speculation.
+
+**What it does.** Reads `.vibe-prompt/state/audit.json` + latest `run-result.json` + `inventory.json` + (optional) `composer.json`, groups findings by fix category, generates per-finding diffs via category-mapped templates, scores each on a 5-dimension confidence rubric, and routes by confidence. Source-mutating — but with a backup + rollback discipline that mirrors `vibe-sec:fix`.
+
+**Three fix categories.** Each finding maps to one of:
+
+- **Category A — composer-level additions** (default confidence 0.92). Targets F9 date-grounding misses. Touches ONE file: the composer (`gemini.ts`, `openai.ts`, etc., located via composer.json). Shape is pure addition between named sections, zero voice-drift risk.
+- **Category B — contradiction removal** (default confidence 0.75). Targets F2 voice-contradiction findings. Touches ONE registry entry or inline prompt. Shape is locate-and-rephrase — semantic edit with voice-drift risk. Always stages by default; auto-write requires `--apply-contradictions` opt-in.
+- **Category C — defense addition** (0.88 contract / 0.78 delimiter). Targets F10/F11 (and F12 high-severity fallback). Touches ONE prompt's content — adds an interpretation contract paragraph + structural delimiter around user-input vars. Shape is additive with slight token cost.
+
+**Confidence routing.** Diffs route based on weighted-average confidence:
+- **≥ 0.90 → auto-write** with backup. The default behavior is still to ASK before writing — `--auto-apply` bypasses the gate for CI mode.
+- **0.70 – 0.89 → stage** to `.vibe-prompt/remediate/pending/<finding-id>.diff` as YAML front-matter + unified-diff body. User reviews then runs `--apply-pending <findingId>` or `--reject-pending <findingId>`.
+- **< 0.70 → inline-only** — recommendation text in the banner; no file action.
+
+**Backup + rollback.** Every auto-write batch creates a backup batch at `.vibe-prompt/remediate/backup/<ISO-timestamp>/` mirroring the source tree. `:remediate --rollback <ISO-timestamp>` restores all files in that batch atomically. The append-only ledger at `.vibe-prompt/remediate/state/runs.jsonl` records every apply / stage / reject / rollback. Order is always: backup → apply → ledger entry. Never mutate source without writing the backup first.
+
+**F12 handoff.** F12 critical findings do NOT get an auto-proposed fix — composition-order is an architecture-level problem, not a prompt-level edit. Instead, `:remediate` emits a handoff banner naming the composer file and recommending `/vibe-sec:audit` for app-level user-input boundary review. `--skip-f12` suppresses the banner. F12 high-severity (confidence-degraded by missing composer.json) does propose a Category C defense as a reasonable intermediate fix.
+
+**Friction discipline.** Reject the staged Category B fix → friction-logs `staged-fix-rejected`, tunes the confidence rubric. Roll back an auto-applied diff → `auto-write-rolled-back`, raises threshold or moves the category to always-stage. Apply a fix then re-eval and confirm baseline advanced → positive `staged-fix-applied-and-eval-confirms-improvement`. Composer auto-gen produced low globalConfidence → `composer-auto-generation-confidence-low`, tunes detection heuristics. All four roll into `:evolve-prompt`.
+
+**Recommended workflow.**
+
+1. `/vibe-prompt:audit` — find what's wrong.
+2. `/vibe-prompt:eval` — confirm the structural finding correlates with behavioral drift.
+3. `/vibe-prompt:grade` — anchor the per-prompt + app composites to the monotonic baseline.
+4. `/vibe-prompt:remediate` — generate the diffs. Default behavior stages instead of auto-writing.
+5. Review staged diffs in `.vibe-prompt/remediate/pending/`.
+6. `/vibe-prompt:remediate --apply-pending <findingId>` once satisfied.
+7. `/vibe-prompt:eval --prompts <impactedPromptIds>` to confirm the fix moved the score.
+8. `/vibe-prompt:grade` to advance the baseline if the fix landed.
+9. If anything regressed: `/vibe-prompt:remediate --rollback <timestamp>` restores the pre-fix state.
+
+`:remediate` does not invoke `:eval` or `:grade` automatically — they cost real money and the user owns the gate. The post-apply guidance in the banner names the exact `--prompts` invocation to run next.
+
 ## Self-evolution
 
 All command skills invoke `session-logger` at start + end and `friction-logger` at the triggers in `friction-triggers.md`. `evolve-prompt` reads those logs and proposes changes — never auto-applies.
