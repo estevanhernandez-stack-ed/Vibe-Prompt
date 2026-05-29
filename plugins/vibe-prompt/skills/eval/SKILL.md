@@ -39,7 +39,7 @@ Load `vibe-prompt:guide` first. Then load `references/composer-mimic.md`, `refer
 5. **Execute eval.** For each (prompt, fixture):
    - Call prod model via `GeminiClient` (or appropriate vendor) per `references/vendor-clients.md`. Update running cost.
    - Call baseline via `InSessionAgentClient` (drift mode only).
-   - Apply mechanical comparator per `references/mechanical-comparator.md`.
+   - Apply mechanical comparator per `references/mechanical-comparator.md`. Run all checks in order: hard-fail → both-failed → schema-shape → **value-type-drift** (v0.4 new: fires when key is present but value type differs between prod/baseline or deviates from OUTPUT_SCHEMA declared type; includes value-type-drift-both variant; positioned between schema-shape and length-delta per the comparator reference) → length-delta → token-delta → empty.
    - **LLM-judge with Swap-and-Discard** per `references/llm-judge-prompt.md` and `references/swap-and-discard.md` (unless `--no-judge`):
      - Run 1 (original order): dispatch judge with prod as Output A, baseline as Output B. Capture judgment (SWRS shape: strengths_A, weaknesses_A, strengths_B, weaknesses_B, reasoning, scores_A, scores_B, driftFindings).
      - Run 2 (swapped order): dispatch judge with baseline as Output A, prod as Output B. Capture judgment. Skip if `--no-swap` flag set.
