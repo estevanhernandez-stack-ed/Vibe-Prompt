@@ -31,6 +31,36 @@
       }
     },
     "costCeiling": { "type": "number", "minimum": 0 },
-    "fixturePath": { "type": "string" }
+    "fixturePath": { "type": "string" },
+    "eval": {
+      "type": "object",
+      "properties": {
+        "injectAttack": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "fixtures": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "costCeiling": { "type": "number", "minimum": 0, "default": 0.20 }
+          }
+        }
+      }
+    },
+    "audit": {
+      "type": "object",
+      "properties": {
+        "injectionResistance": {
+          "type": "object",
+          "properties": {
+            "userInputVars": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
   }
 }
