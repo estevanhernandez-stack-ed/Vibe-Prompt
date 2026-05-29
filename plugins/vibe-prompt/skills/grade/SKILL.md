@@ -37,12 +37,16 @@ will be audit-only composites; surface this limitation in the banner and dashboa
 For each prompt in `audit.json.auditGrade.perPrompt`:
 
 - Pull audit-side dimension scores (`schemaTightness`, `personaConsistency`, `instructionClarity`,
-  `tokenEfficiency`).
-- If eval results exist, pull the corresponding `evalGrade.dimensions` from the latest run-result.
+  `tokenEfficiency`, `injectionResistance`).
+- If eval results exist, pull the corresponding `evalGrade.dimensions` from the latest run-result
+  (including `injectionResistance` if present).
 - Average audit and eval dimension scores per dimension (when both exist); use audit-only when eval
-  is absent.
+  is absent. This applies to all 5 dimensions including `injectionResistance`.
 - Read user weights from `.vibe-prompt/grade/weights.json` if present. Auto-normalize if weights
-  don't sum to 1.0. Fall back to equal weights (0.25 each) if the file is absent.
+  don't sum to 1.0. Fall back to equal weights (0.20 each, v0.4) if the file is absent.
+- **Legacy 4-dim migration:** if `weights.json` has 4 dimensions (no `injectionResistance` key),
+  add `injectionResistance: 0.20` and auto-normalize all 5 weights. Log a normalization warning
+  in the banner.
 - Compute per-prompt composite per `references/composite-formula.md`.
 
 Compute app composite as the average of per-prompt composites across the full inventory.
