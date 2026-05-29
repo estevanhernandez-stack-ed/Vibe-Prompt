@@ -16,7 +16,13 @@ Load `vibe-prompt:guide`. Then walk the user through three captures.
 
 1. **Pre-flight.** `session-logger` start. Verify inventory exists — if not, friction-log `inventory-not-found` and exit with: *"Run /vibe-prompt:scan first, or point at a manual inventory file."*
 
-2. **Composer capture** per `references/composer-interview.md`. Output: `.vibe-prompt/eval/composer.json`.
+2. **Composer capture** — autonomous-first via `references/composer-detection.md` (v0.5), interactive fallback via `references/composer-interview.md`. Output: `.vibe-prompt/eval/composer.json`.
+   - Stage 1: Detect composer file candidates by filename (`gemini.ts`, `openai.ts`, `anthropic.ts`, `llm.ts`, `ai.ts`, `chat.ts`) + SDK import (`@google/genai`, `@anthropic-ai/sdk`, `openai`). Multi-candidate output supported; user picks primary.
+   - Stage 2: Trace composition layers in the primary composer (walk `+=` accumulation, template-literal segments, or array-join patterns).
+   - Stage 3: Classify each layer (`global-directive`, `format-directive`, `knowledge-context`, `task-instruction`, `user-data`). Map to composer.schema.json type enum.
+   - Stage 4: Emit `composer.json` with `globalConfidence` (weighted average of per-layer confidence) and `regenerationSource` (`auto-detected` | `hybrid` | `manual`).
+   - Stage 5: When fewer than 2 layers resolve OR `globalConfidence < 0.40`, surface a warning banner + friction-log `composer-auto-generation-confidence-low`; ≥4 layers + globalConfidence ≥0.7 emits a clean banner with no friction.
+   - Re-runnable via `:first-run-setup --regenerate-composer`.
 
 3. **Agent self-ID** per `references/agent-self-id.md`. Output: `.vibe-prompt/eval/agent.json`.
 
