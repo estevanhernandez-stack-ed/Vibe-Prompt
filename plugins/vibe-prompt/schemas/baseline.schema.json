@@ -20,7 +20,20 @@
               "schemaTightness": { "type": "integer", "minimum": 1, "maximum": 10 },
               "personaConsistency": { "type": "integer", "minimum": 1, "maximum": 10 },
               "instructionClarity": { "type": "integer", "minimum": 1, "maximum": 10 },
-              "tokenEfficiency": { "type": "integer", "minimum": 1, "maximum": 10 }
+              "tokenEfficiency": { "type": "integer", "minimum": 1, "maximum": 10 },
+              "injectionResistance": { "type": "integer", "minimum": 1, "maximum": 10 }
+            }
+          },
+          "bestScores": {
+            "type": "object",
+            "properties": {
+              "injectionResistance": {
+                "type": "object",
+                "properties": {
+                  "best": { "type": "number" },
+                  "achievedAt": { "type": "string" }
+                }
+              }
             }
           },
           "establishedInRunId": { "type": "string" }

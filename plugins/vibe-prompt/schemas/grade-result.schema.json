@@ -23,7 +23,18 @@
               "schemaTightness": { "type": "integer", "minimum": 1, "maximum": 10 },
               "personaConsistency": { "type": "integer", "minimum": 1, "maximum": 10 },
               "instructionClarity": { "type": "integer", "minimum": 1, "maximum": 10 },
-              "tokenEfficiency": { "type": "integer", "minimum": 1, "maximum": 10 }
+              "tokenEfficiency": { "type": "integer", "minimum": 1, "maximum": 10 },
+              "injectionResistance": { "type": "integer", "minimum": 1, "maximum": 10 }
+            }
+          },
+          "weights": {
+            "type": "object",
+            "properties": {
+              "schemaTightness": { "type": "number" },
+              "personaConsistency": { "type": "number" },
+              "instructionClarity": { "type": "number" },
+              "tokenEfficiency": { "type": "number" },
+              "injectionResistance": { "type": "number" }
             }
           },
           "vsBaseline": {
@@ -36,7 +47,27 @@
         }
       }
     },
-    "appComposite": { "type": "integer", "minimum": 1, "maximum": 10 },
+    "appComposite": {
+      "oneOf": [
+        { "type": "integer", "minimum": 1, "maximum": 10 },
+        {
+          "type": "object",
+          "properties": {
+            "value": { "type": "integer", "minimum": 1, "maximum": 10 },
+            "dimensions": {
+              "type": "object",
+              "properties": {
+                "schemaTightness": { "type": "integer", "minimum": 1, "maximum": 10 },
+                "personaConsistency": { "type": "integer", "minimum": 1, "maximum": 10 },
+                "instructionClarity": { "type": "integer", "minimum": 1, "maximum": 10 },
+                "tokenEfficiency": { "type": "integer", "minimum": 1, "maximum": 10 },
+                "injectionResistance": { "type": "integer", "minimum": 1, "maximum": 10 }
+              }
+            }
+          }
+        }
+      ]
+    },
     "appCompositeVsBaseline": {
       "type": "object",
       "properties": {
