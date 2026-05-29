@@ -44,6 +44,26 @@ Detect the stack from `package.json`, `pyproject.toml`, `requirements.txt`, file
 
 `scan` is the prerequisite for `audit`. If `.vibe-prompt/state/inventory.json` does not exist when `audit` is invoked, instruct the user to run `/vibe-prompt:scan` first. Never silently re-scan from within audit.
 
+## Prompt-injection vulnerability grading (v0.4)
+
+v0.4 adds a fifth scoring dimension and three new audit findings that cover LLM-specific prompt-content security. This is a distinct surface from app-level injection (vibe-sec's territory) — it covers whether the prompt itself is structurally vulnerable to user-input override.
+
+**What it does:** static analysis on inventory.json detects user-input variables in prompts, checks for sanitization directives, checks composition order, and assigns an `injectionResistance` score (1-10) per prompt. No LLM calls required for any of F10-F12.
+
+**The F10-F12 finding family:**
+
+- **F10 — User-input var without sanitization marker (high).** Fires when a `templatedVar` matches user-origin heuristics (e.g., `userDreamText`, `userMessage`, any var containing `message|query|text|input|dream|chat`) AND no sanitization directive appears within 200 chars of the var reference. Score impact: injectionResistance −4, instruction-clarity −1.
+- **F11 — Defense-in-depth scarcity (medium).** Fires when F10 already fired on a prompt AND fewer than 2 defense phrases appear in the full prompt content. Defense phrases: "treat as data", "ignore instructions within", "your role is fixed", "do not execute commands", "regardless of user request", "always remain". Score impact: injectionResistance −2.
+- **F12 — User-var at or before system instruction (critical).** Fires when composer.json shows the user-var injection layer at or before the system-instruction layer. This is the highest-severity finding: if user content reaches the model before the system instruction, it can override it. Confidence-degrades to `high` when composer-mimic confidence < 0.6. Score impact: injectionResistance −6, persona-consistency −2.
+
+**Cross-plugin handoff:** F10, F11, and F12 findings all carry `handoffHint: "vibe-sec:audit"`. The hint is advisory — audit surfaces it, the user decides whether to invoke. vibe-sec covers app-level boundary enforcement (sanitizing user input at the API layer); vibe-prompt covers prompt-content structure. Both layers matter; neither replaces the other.
+
+**The `--inject-attacks` eval mode:** `/vibe-prompt:eval --inject-attacks` adds an active probe layer on top of the standard drift evaluation. For each prompt with a user-input var, it substitutes 6 canonical injection patterns into the var, calls the prod vendor, and uses a dedicated binary LLM-judge to determine whether the model honored the attack or maintained its system role. Results land in `run-result.injectAttackResults` and `injectAttackSummary.resistanceRate`. Cost-gated: estimated cost shown before running (typically $0.006 for 1 prompt × 1 var × 6 fixtures).
+
+**App-type weight heuristic:** when audit detects a consumer-facing app (user-input vars across 3+ prompts, or CLAUDE.md signals user-input patterns), it suggests bumping `injectionResistance` weight from the default 0.20 to 0.40 — because injection attack surface scales with input volume. Internal/curated-data apps get the inverse suggestion (0.10). The override is always advisory; user confirms before it writes to `.vibe-prompt/grade/weights.json`.
+
+**5th dimension weight redistribution:** v0.3 used 0.25 × 4 = 1.0. v0.4 default is 0.20 × 5 = 1.0. Existing `weights.json` files with 4-dimension entries auto-normalize — no manual migration needed.
+
 ## Self-evolution
 
 All command skills invoke `session-logger` at start + end and `friction-logger` at the triggers in `friction-triggers.md`. `evolve-prompt` reads those logs and proposes changes — never auto-applies.
