@@ -173,20 +173,40 @@ End with `session-logger` terminal entry.
 
 ## F12 handoff banner
 
-F12 critical findings: `:remediate` does NOT propose a fix. Instead emits:
+F12 critical findings: `:remediate` does NOT propose a fix. The decision is intentional
+— composition-order is an architecture-level concern (which layer receives the user var,
+relative to the system instruction layer), not a prompt-level edit. Proposing a diff
+inside the prompt would mask the real issue. Instead, emit the handoff banner:
 
 > F12 fired critical on `<promptId>`. Composition-order fixes belong upstream in your
 > composer architecture (`<composerPath>`), not in this prompt. Run `/vibe-sec:audit`
 > for app-level user-input boundary review, then decide whether to restructure the
 > composer or scope the user var into a [DATA] block.
 
-`--skip-f12` flag suppresses the handoff banner when the user is intentionally not
-fixing F12 in this pass.
+The `<composerPath>` placeholder is filled from `composer.json.layers[]`'s source-file
+reference (or the audit finding's `evidence.compositionStackLocation` when composer.json
+is absent). The `<promptId>` placeholder comes from `audit.findings[].evidence.promptId`.
 
-**F12 high-severity fallback:** when F12 fires at `high` severity (confidence-degraded
-due to missing or low-confidence composer.json), Category C still proposes a defense
-block — because severity is non-critical, the additive defense is a reasonable
-intermediate fix.
+The banner records to `runs.jsonl` with action `inline-only` and findingCategory `F12-handoff`
+so the dashboard can surface the handoff even though no file was touched.
+
+`--skip-f12` flag suppresses the handoff banner when the user is intentionally not
+fixing F12 in this pass — useful when the user is iterating on Category A/C fixes and
+wants to defer the composer restructure until later.
+
+**F12 high-severity Category C fallback:** when F12 fires at `high` severity
+(confidence-degraded due to missing or low-confidence composer.json — see audit step 4e),
+Category C still proposes a defense block. Because severity is non-critical, the additive
+defense is a reasonable intermediate fix: it hardens the prompt now without committing
+to the composer restructure. The banner labels these proposals with
+`note: "F12 high — intermediate Category C fix; composer restructure deferred"` so the
+user knows the fix is provisional.
+
+**Cross-plugin coordination.** The F10/F11 `handoffHint: "vibe-sec:audit"` annotations
+(emitted by the audit) remain advisory after `:remediate` applies a Category C fix —
+vibe-sec still cares about app-level boundary review even after the prompt-level defense
+is added. `:remediate` does NOT auto-invoke vibe-sec (boundary respected); the user
+chooses when to dispatch the handoff.
 
 ## State files
 
