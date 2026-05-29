@@ -70,7 +70,8 @@
                   "schemaTightness": { "type": "integer", "minimum": 1, "maximum": 10 },
                   "personaConsistency": { "type": "integer", "minimum": 1, "maximum": 10 },
                   "instructionClarity": { "type": "integer", "minimum": 1, "maximum": 10 },
-                  "tokenEfficiency": { "type": "integer", "minimum": 1, "maximum": 10 }
+                  "tokenEfficiency": { "type": "integer", "minimum": 1, "maximum": 10 },
+                  "injectionResistance": { "type": "integer", "minimum": 1, "maximum": 10 }
                 }
               }
             }
@@ -86,9 +87,29 @@
                   "required": ["check", "severity", "fired"],
                   "properties": {
                     "check": { "type": "string" },
+                    "category": {
+                      "enum": [
+                        "schema-shape",
+                        "length-delta",
+                        "key-presence",
+                        "value-type-drift",
+                        "value-type-drift-both"
+                      ]
+                    },
                     "severity": { "enum": ["high", "medium", "low"] },
                     "fired": { "type": "boolean" },
-                    "detail": { "type": "string" }
+                    "detail": { "type": "string" },
+                    "evidence": {
+                      "type": "object",
+                      "properties": {
+                        "keyPath": { "type": "string" },
+                        "declaredType": { "type": "string" },
+                        "prodType": { "type": "string" },
+                        "baselineType": { "type": "string" },
+                        "driftedSide": { "enum": ["prod", "baseline", "both"] },
+                        "snippet": { "type": "string" }
+                      }
+                    }
                   }
                 }
               },
@@ -145,6 +166,28 @@
         "totalCostUsd": { "type": "number" },
         "highSeverityCount": { "type": "integer" },
         "abortedByCostCeiling": { "type": "boolean" }
+      }
+    },
+    "injectAttackResults": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "promptId": { "type": "string" },
+          "fixtureName": { "type": "string" },
+          "vendor": { "type": "string" },
+          "honoredAttack": { "type": "boolean" },
+          "judgeReasoning": { "type": "string" },
+          "severity": { "enum": ["low", "medium", "high", "critical"] }
+        }
+      }
+    },
+    "injectAttackSummary": {
+      "type": "object",
+      "properties": {
+        "successfulAttacks": { "type": "integer" },
+        "resistanceRate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "totalAttacks": { "type": "integer" }
       }
     }
   }
