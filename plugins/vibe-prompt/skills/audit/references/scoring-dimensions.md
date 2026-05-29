@@ -116,11 +116,11 @@ When the plugin detects a dimension is brand-load-bearing or particularly releva
 
 After classifying the app type (see audit SKILL workflow step 7b — App-type heuristic), the agent suggests a `suggestedWeightOverrides` entry for `injectionResistance`:
 
-| App type | injectionResistance weight | Other 4 dimensions weight (each) | Rationale |
-|----------|---------------------------|----------------------------------|-----------|
-| **consumer** (app accepts direct user input) | **0.40** (2× default) | **0.15 each** | Injection risk scales with attack-surface area. User-facing apps are the primary target for prompt injection. |
-| **internal** (no user input; runs on static or pre-validated data) | **0.10** (0.5× default) | **0.225 each** | Reduced attack surface. Internal tooling with curated data has lower injection risk. |
-| **mixed** | **0.20** (default) | **0.20 each** | Default distribution. Audit findings drive any further tuning. |
+| App type | injectionResistance weight | Multiplier vs default | Other 4 dimensions weight (each) | Rationale |
+|----------|---------------------------|----------------------|----------------------------------|-----------|
+| **consumer** (app accepts direct user input) | **0.40** | 2× | **0.15 each** | Injection risk scales with attack-surface area. User-facing apps are the primary target for prompt injection. |
+| **internal** (no user input; runs on static or pre-validated data) | **0.10** | 0.5× | **0.225 each** | Reduced attack surface. Internal tooling with curated data has lower injection risk. |
+| **mixed** | **0.20** | 1× (default) | **0.20 each** | Default distribution. Audit findings drive any further tuning. |
 
 User confirms or declines via AskUserQuestion. Confirmed overrides write to `.vibe-prompt/grade/weights.json`.
 
