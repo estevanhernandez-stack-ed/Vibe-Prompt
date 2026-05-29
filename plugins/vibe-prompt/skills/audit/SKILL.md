@@ -5,7 +5,7 @@ description: This skill should be used when the user says "/vibe-prompt:audit", 
 
 # /vibe-prompt:audit
 
-Load `vibe-prompt:guide` first. Then load `references/smell-rubric-f1-f7.md` and `references/audit-report-template.md`.
+Load `vibe-prompt:guide` first. Then load `references/smell-rubric-f1-f7.md`, `references/audit-report-template.md`, `references/scoring-dimensions.md`, and `vibe-prompt:guide/references/calibration-patterns.md`.
 
 Apply the F1-F7 rubric to the cached inventory. Emit machine-readable findings + human-readable dated report.
 
@@ -21,10 +21,22 @@ Apply the F1-F7 rubric to the cached inventory. Emit machine-readable findings +
 3. **F2 semantic pass.** Voice-contradiction detection cannot run from inventory alone — it needs prompt content. Re-read each voice-bearing prompt's content from the target source. Compare global directive (if present in registry as a `*directive` / `*persona` entry) against each task prompt. Surface contradictions with specific file:line citations on BOTH the rule and the violation.
 4. **F6 known-model lookup.** Compare each `modelIdentifiers[*].value` against the bundled known-models list (in `references/smell-rubric-f1-f7.md` §F6). If unrecognized, the suspect-model variant of F6 fires with elevated severity language and a "verify what's actually served" recommendation.
 5. **Compose summary.** Count findings by severity → `summary.byCategory`. Total → `summary.totalFindings`.
-6. **Write audit.json.** Atomic write to `.vibe-prompt/state/audit.json`. Validate against schema before write.
-7. **Render report.** Apply `references/audit-report-template.md` to write `docs/vibe-prompt/audit-{YYYY-MM-DD}.md` in the target app. Date is today's date in the target's local time zone — but use UTC YYYY-MM-DD for the filename to keep ordering stable.
-8. **Render banner.** ≤ 25 lines. Includes finding count by severity, the highest-severity finding's one-liner, the report path, the next recommended step.
-9. **Post-flight.** `session-logger` terminal entry.
+6. **Compute per-prompt scores.** Per `references/scoring-dimensions.md` and the Score impact sections in `references/smell-rubric-f1-f7.md`:
+   - For each prompt in inventory, start each dimension (schemaTightness, personaConsistency, instructionClarity, tokenEfficiency) at 10.
+   - For each fired finding that targets this prompt, apply its Score impact deductions to the affected dimensions.
+   - Floor each dimension at 1 (no dimension goes below 1).
+   - Compute per-prompt composite: weighted average of the 4 dimension scores. Default equal weights (0.25 each). Check `.vibe-prompt/grade/weights.json` for user overrides; apply if present.
+   - Write all per-prompt dimension scores + composite to `audit.json`'s `auditGrade.perPrompt` map.
+   - Compute `auditGrade.appComposite` as the average of all per-prompt composites.
+7. **Check for agent-suggested weight overrides.** Heuristics per `references/scoring-dimensions.md` Agent-suggested weight overrides section:
+   - If 4+ prompts in the inventory have F2 (voice contradiction) findings → suggest weighting persona-consistency at 2× the base weight.
+   - If 4+ prompts have schema-related findings (F1b or F4) → suggest weighting schema-tightness at 2×.
+   - If average prompt token count across the inventory exceeds 4000 tokens → suggest weighting token-efficiency at 2×.
+   - Present each triggered suggestion to the user via AskUserQuestion (one question, listing all triggered suggestions). If accepted, write the confirmed weights to `.vibe-prompt/grade/weights.json` and recompute all per-prompt composites and appComposite with the new weights before writing audit.json.
+8. **Write audit.json.** Atomic write to `.vibe-prompt/state/audit.json`. Validate against schema before write.
+9. **Render report.** Apply `references/audit-report-template.md` to write `docs/vibe-prompt/audit-{YYYY-MM-DD}.md` in the target app. Date is today's date in the target's local time zone — but use UTC YYYY-MM-DD for the filename to keep ordering stable.
+10. **Render banner.** ≤ 25 lines. Includes finding count by severity, the highest-severity finding's one-liner, the report path, the next recommended step.
+11. **Post-flight.** `session-logger` terminal entry.
 
 ## Banner template
 
