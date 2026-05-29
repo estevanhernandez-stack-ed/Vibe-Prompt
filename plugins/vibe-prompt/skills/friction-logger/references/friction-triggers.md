@@ -21,11 +21,40 @@ Single source of truth for which command logs which friction at which confidence
 | `rubric-default-recommendation-felt-generic` | medium | Agent's self-read of the just-rendered recommendation says it lacks app-specific detail |
 | `inventory-schema-violation` | high | inventory.json failed schema validation on read |
 
+## first-run-setup triggers
+
+| Trigger code | Confidence | When |
+|---|---|---|
+| `composer-mimic-confirmation-required` | medium | User had to manually correct the captured composer pattern |
+| `agent-detection-fallback-to-interview` | medium | Self-id failed all detection signals and had to ask user |
+| `inventory-not-found` | high | `.vibe-prompt/state/inventory.json` missing and user couldn't provide a manual one |
+
+## eval triggers
+
+| Trigger code | Confidence | When |
+|---|---|---|
+| `key-pattern-in-state-file` | high | Pre-run guardrail caught a state file with a key pattern |
+| `cost-ceiling-exceeded` | high | Run aborted partway through |
+| `vendor-sdk-not-installed` | high | Plugin needed a vendor SDK that isn't bundled (e.g., OpenAI in v0.1) |
+| `model-cost-rate-unknown` | medium | Estimated cost using conservative fallback (model not in rate table) |
+| `vendor-api-error` | medium | Vendor returned 5xx after retry |
+| `vendor-rate-limit-exhausted` | medium | Vendor returned 429 twice |
+| `llm-judge-finding-dismissed-as-bias` | low | User flagged a judge finding as bias-only, not real drift |
+| `fixture-synthesis-low-confidence` | low | Agent's confidence in a synthesized fixture is low |
+
+## radar triggers
+
+| Trigger code | Confidence | When |
+|---|---|---|
+| `radar-cache-older-than-7-days` | low | Posture detected stale cache |
+| `vendor-news-source-unreachable` | medium | Web fetch failed for a vendor blog/news source |
+
 ## router triggers
 
 | Trigger code | Confidence | When |
 |---|---|---|
 | `audit-older-than-14-days` | low | Posture branch detects stale audit |
+| `eval-older-than-30-days` | low | Posture detected stale last eval run |
 
 ## evolve-prompt triggers
 
