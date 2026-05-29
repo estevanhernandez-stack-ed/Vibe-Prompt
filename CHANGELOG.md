@@ -1,5 +1,56 @@
 # Changelog
 
+## [0.5.0] — 2026-05-29
+
+Four additive capabilities, organized around closing the audit → fix loop. No breaking changes to v0.4 commands or surface area.
+
+### Added
+
+- **`/vibe-prompt:remediate` — new sixth step-command (headline).** Closes the audit → fix loop. Reads latest `audit.json` + composer.json + inventory, groups findings into three fix categories, scores each proposed diff on a 5-dimension confidence rubric, and routes by threshold. Backups + atomic rollback supported. F12 critical findings emit a cross-plugin handoff banner to `/vibe-sec:audit` rather than auto-proposing — composition-order belongs upstream of the prompt.
+  - **Category A — composer-level additions** (default 0.92 confidence). One file, pure addition between named sections, no semantic edits. Maps F9 date-grounding to a master-directive injection. Floors at 0.80 if composer.json absent or layer confidence < 0.6.
+  - **Category B — contradiction removal** (default 0.75 confidence). One registry entry or inline prompt; locate-and-rephrase against a banned-phrase list pulled from F2 detection. Stages by default (voice drift risk); auto-bumps registry minor version. Floors at 0.50 when the banned phrase appears > 3 times.
+  - **Category C — defense addition** (default 0.88 on contract paragraph, 0.78 on delimiter placement). Adds a defense block before user-input vars + a structural delimiter around the user var. Maps F10, F11, and F12 (when the fix is additive rather than restructuring). Delimiter name derived from var name (`dreamText` → `DREAM`, etc.).
+  - **Confidence rubric:** locate (0.30) + diff-shape (0.25) + voice-risk (0.20) + schema-impact (0.15) + version-bump (0.10). Routing: ≥0.90 auto-write, 0.70-0.89 stage, <0.70 inline-only. User overrides at `.vibe-prompt/config/remediate-thresholds.json`.
+  - **State layout:** `.vibe-prompt/remediate/pending/<finding-id>.diff` (staged fixes with YAML front-matter + unified-diff body), `.vibe-prompt/remediate/backup/<ISO-timestamp>/` (pre-apply file backups), `.vibe-prompt/remediate/state/runs.jsonl` (append-only ledger).
+  - **Flags:** `--apply-pending <findingId>`, `--reject-pending <findingId>`, `--rollback <ISO-timestamp>`, `--interactive`, `--auto-apply`, `--skip-f12`, `--apply-contradictions`.
+
+- **Inventory scan completeness — three new inline-prompt detection patterns.** `:scan` now detects template-literal `${var}` interpolations, string concatenation with user-controlled variables, and JSX template attributes alongside existing `{{handlebars}}` detection. Each templated var carries `source` (handlebars | template-literal | concat | jsx-attr) and `declaredAt` line reference. Closes the v0.4 gap that hid Oneirocriton's `dreamText` var from F10 detection.
+
+- **System-injected var detection.** `:scan` now classifies each templated var by origin (`user-controlled` | `system-injected` | `unknown`) using two signals: a naming heuristic (high confidence) and call-graph proximity (medium confidence, with conservative fallback to user-controlled when unknown). `:audit` reads the origin field and filters F10/F11/F12 to user-controlled vars only. Findings record `originFilteredOut: true` when a candidate var was excluded due to system-injected detection. Closes the v0.4 false positive on arithmancy's `{{knowledgeContext}}`. Config override at `.vibe-prompt/config/var-origins.json`.
+
+- **composer.json auto-generation in `:first-run-setup`.** First-run setup now detects composer files (filename heuristics: `gemini.ts`, `openai.ts`, `anthropic.ts`, `llm.ts`, `ai.ts`, `chat.ts`; plus SDK import detection for `@google/genai`, `@anthropic-ai/sdk`, `openai`), traces composition layers, classifies each layer (global-directive | format-directive | knowledge-context | task-instruction | user-data), and emits composer.json with per-layer `confidence` + `globalConfidence` + `regenerationSource` enum (manual | auto-detected | hybrid). Confidence floor: emit `confidence: 0.4` and prompt user to verify manually when fewer than 2 layers resolve. Re-runnable via `:first-run-setup --regenerate-composer`. Enables full-confidence Category A fixes and full critical severity on F12.
+
+- **4 new friction triggers:** `staged-fix-applied-and-eval-confirms-improvement` (positive), `staged-fix-rejected` (medium), `auto-write-rolled-back` (high), `composer-auto-generation-confidence-low` (medium). Each maps to a concrete handler template in `evolve-prompt/SKILL.md`.
+
+### Changed
+
+- `:audit` F10/F11/F12 detection filters by var origin — only `user-controlled` and `unknown` vars trigger findings. `system-injected` vars are excluded with `originFilteredOut: true` recorded.
+- `:scan` inventory output now includes `source` + `declaredAt` + `origin` + `originConfidence` per templated var.
+- `:first-run-setup` runs composer auto-generation when `.vibe-prompt/composer.json` is absent on first command.
+- Router (bare `/vibe-prompt`) extended with `review-pending-remediations` state branch — fires when `.vibe-prompt/remediate/pending/` is non-empty.
+- Guide SKILL updated with v0.5 remediate overview.
+- Audit scoring-dimensions reference notes that `injectionResistance` is filtered after origin detection.
+
+### Schema changes
+
+- **NEW: `remediate-result.schema.json`** — runId, timestamp, auditRunId, totalFindings, diffsByCategory (A/B/C counts), appliedDiffs[], stagedDiffs[], inlineOnlyDiffs[], f12HandoffsEmitted[], backupBatchPath.
+- **NEW: `pending-fix.schema.json`** — YAML front-matter validation for staged `.diff` files (findingId, findingCategory, confidence, targetFile, targetRange, backupPath, recommendationSource, postApplyRecommendation, versionBumpRequired, suggestedVersion).
+- `inventory.schema.json` — `inlinePrompts[].templatedVars[]` extended with `source` enum, `declaredAt` line ref, `origin` enum, `originConfidence` 0-1 number.
+- `composer.schema.json` — `layers[].confidence` per-layer, `globalConfidence`, `regenerationSource` enum.
+- `audit.schema.json` — `findings[].originFilteredOut` boolean, `findings[].varOriginUsed` reference to origin classification used.
+- `config.schema.json` — `remediate.autoApplyThreshold` (default 0.90), `remediate.stageThreshold` (default 0.70), `remediate.backupRetentionDays` (default 30), `audit.varOriginOverrides` (object).
+
+### Migration notes
+
+- **No breaking changes.** All v0.4 commands, schemas, and state files remain valid.
+- **v0.4 inventory.json continues to validate.** `{{handlebars}}` vars stay as string-only entries with no `source` / `origin` fields. v0.5 scan re-run normalizes existing entries to include the new fields.
+- **v0.4 audit.json continues to validate.** Findings without `originFilteredOut` are treated as unfiltered (no `system-injected` detection was applied). v0.5 audit re-run writes the new fields.
+- **composer.json from v0.4 is read as `regenerationSource: "manual"`** if the field is missing. Per-layer confidence defaults to 1.0 when absent (treats existing entries as authored).
+- **`:remediate` is opt-in.** Existing v0.4 workflows that stop at `:grade` are unchanged.
+- **Auto-write is gated.** Default `:remediate` behavior stages all fixes. Auto-write only triggers with `--auto-apply` flag.
+
+---
+
 ## [0.4.0] — 2026-05-29
 
 Three additive capabilities. No breaking changes to v0.3 commands or surface area.
