@@ -61,3 +61,20 @@ Single source of truth for which command logs which friction at which confidence
 | Trigger code | Confidence | When |
 |---|---|---|
 | `no-sessions-in-30-days` | low | Insufficient data to make any proposal |
+
+## grade triggers
+
+| Trigger code | Confidence | When |
+|---|---|---|
+| `weight-override-suggested-and-rejected` | low | Plugin suggested a dimension weight override; user declined. |
+| `regression-flagged` | high | A prompt's composite regressed vs baseline. |
+| `regression-flagged-and-accepted-as-baseline` | medium | User accepted a regression as the new baseline via `--accept-regression`. Signal that monotonic discipline may be wrong here, OR scoring has calibration issue. |
+| `composite-score-flat-after-fix` | medium | User claims to have fixed a prompt finding but composite didn't move. Signal that dimension formula isn't sensitive enough OR fix didn't land. |
+| `swap-and-discard-tie-rate-over-30pct` | medium | More than 30% of judge calls discarded as position-bias ties. Tighten judge prompt or change judge model. |
+
+## iterate triggers
+
+| Trigger code | Confidence | When |
+|---|---|---|
+| `iterate-suggestion-implemented` | high | User actually built a `:iterate` suggestion (verifiable by next `:scan` finding the new prompt). Positive signal — suggestion engine is valuable. |
+| `iterate-suggestion-dismissed-as-off-domain` | medium | User flagged a suggestion as wrong for the app. Signal to tighten domain detection. |

@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "vibe-prompt/baseline",
+  "type": "object",
+  "required": ["version", "establishedAt", "lastAdvancedAt", "perPromptBaseline", "appComposite"],
+  "properties": {
+    "version": { "type": "string", "const": "0.3" },
+    "establishedAt": { "type": "string", "format": "date-time" },
+    "lastAdvancedAt": { "type": "string", "format": "date-time" },
+    "perPromptBaseline": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["composite", "dimensions", "establishedInRunId"],
+        "properties": {
+          "composite": { "type": "integer", "minimum": 1, "maximum": 10 },
+          "dimensions": {
+            "type": "object",
+            "properties": {
+              "schemaTightness": { "type": "integer", "minimum": 1, "maximum": 10 },
+              "personaConsistency": { "type": "integer", "minimum": 1, "maximum": 10 },
+              "instructionClarity": { "type": "integer", "minimum": 1, "maximum": 10 },
+              "tokenEfficiency": { "type": "integer", "minimum": 1, "maximum": 10 }
+            }
+          },
+          "establishedInRunId": { "type": "string" }
+        }
+      }
+    },
+    "appComposite": { "type": "integer", "minimum": 1, "maximum": 10 },
+    "appCompositeAdvancedAt": { "type": "string", "format": "date-time" },
+    "appCompositeEstablishedInRunId": { "type": "string" }
+  }
+}
