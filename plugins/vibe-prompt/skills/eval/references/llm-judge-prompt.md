@@ -1,20 +1,23 @@
 # LLM-judge prompt — eval
 
-The semantic comparator. Dispatches an in-session subagent to read both outputs and name differences. Every finding ships with the evaluator-drift footer.
+The semantic comparator. Dispatches an in-session subagent to read both outputs, score them per dimension, and identify drift findings. Every finding ships with the evaluator-drift footer.
 
 ## Dispatch
 
 Subagent type: `general-purpose`. Model: `haiku` (this is judge work; tighter cost). Prompt template below.
 
-## Prompt template
+## Prompt template (v0.3)
 
 ```
-You are {{agent.name}} ({{agent.model}}). You are reading two LLM outputs and identifying differences. You may be biased toward outputs that match your own training style — name this risk explicitly in any finding where it matters.
+You are {{agent.name}} ({{agent.model}}) acting as an LLM-judge for the vibe-prompt:eval drift detection layer.
+
+You will read two outputs and produce a structured judgment. Before scoring, you MUST walk through your analysis step by step (Long CoT). For each dimension below, articulate what you observe in the outputs. Cite specific phrases. THEN provide scores.
+
+You may be biased toward outputs that match your own training style — name this risk explicitly in your reasoning where it applies.
 
 ## Inputs
 
 The same prompt was sent to two models:
-
 - Output A: from {{prod.model}} (the production model)
 - Output B: from {{baseline.model}} (the baseline — that's you, in this case)
 
@@ -28,38 +31,65 @@ The same prompt was sent to two models:
 {{outputBaseline}}
 ```
 
-## Your task
+## Scoring rubric
 
-Identify semantic differences along these dimensions:
+For EACH of the two outputs, score on these 4 dimensions (1–10 each):
 
-1. **Persona drift** — does one output address the user differently? (e.g., "Pilgrim" vs "you")
-2. **Voice tone** — formality, mysticism, warmth, conciseness
-3. **Topic adherence** — does one drift from the task?
-4. **Output structure** — headers, lists, paragraph density
-5. **Length appropriateness** — does one violate explicit length constraints in the original prompt?
+1. **Schema tightness** — does the output strictly conform to the prompt's declared output schema? All required keys present, value types correct, no unexpected extras?
+2. **Persona consistency** — does the output honor the master directive? No prohibited language, voice aligned with declared persona?
+3. **Instruction clarity (followed)** — did the model follow the instruction correctly and answer the actual question? No off-topic drift?
+4. **Token efficiency** — is the output appropriately concise? PENALIZE unnecessary elaboration. Quality is not length. An output that says the same thing in fewer words scores higher. Padded outputs that appear to game length-based evaluators score lower.
 
-Return ONLY a JSON array of findings, each shaped:
+## Required output shape
+
+Return ONLY this JSON (no preamble, no postamble):
 
 ```json
 {
-  "category": "persona-drift | voice-tone | topic-adherence | output-structure | length",
-  "severity": "high | medium | low",
-  "text": "1-2 sentence description naming what diverged and citing specific text"
+  "strengths_A": ["1–3 specific strengths of Output A"],
+  "weaknesses_A": ["1–3 specific weaknesses of Output A"],
+  "strengths_B": ["1–3 specific strengths of Output B"],
+  "weaknesses_B": ["1–3 specific weaknesses of Output B"],
+  "reasoning": "2–4 sentences walking through the comparative analysis, citing specific text from both outputs",
+  "scores_A": {
+    "schemaTightness": 0,
+    "personaConsistency": 0,
+    "instructionClarity": 0,
+    "tokenEfficiency": 0
+  },
+  "scores_B": {
+    "schemaTightness": 0,
+    "personaConsistency": 0,
+    "instructionClarity": 0,
+    "tokenEfficiency": 0
+  },
+  "driftFindings": [
+    {
+      "category": "persona-drift | voice-tone | topic-adherence | output-structure | length",
+      "severity": "high | medium | low",
+      "text": "1–2 sentence description naming what diverged, citing specific text"
+    }
+  ]
 }
 ```
 
-Empty array if no notable differences.
+Scores are integers 1–10. Empty `driftFindings` array if no notable differences.
 
 ## Important
 
+- Emit your Long CoT reasoning through the strengths, weaknesses, and reasoning fields BEFORE scores. The order matters.
 - Be specific. Quote phrases from the outputs to ground each finding.
-- Do NOT score which output is "better". Drift, not preference.
-- Where the divergence might just be "Output A doesn't sound like me", say so honestly — that's evaluator drift, not real product drift.
+- Do NOT score which output is "better overall" — compute scores independently for each on each dimension.
+- Where the divergence might just be "Output A doesn't sound like me", say so honestly in reasoning — that's evaluator drift, not real product drift.
 ```
 
-## Post-processing: append evaluator-drift footer
+## Post-processing: extract scores + append evaluator-drift footer
 
-After receiving the judge's findings, for EACH finding, append a footer:
+After receiving the judge's structured response:
+
+1. **Extract per-dimension scores.** Pull `scores_A` (prod) and `scores_B` (baseline) from the JSON response. Store in the run-result's per-prompt entry under `evalGrade.dimensions.prod` and `evalGrade.dimensions.baseline`. These feed the Swap-and-Discard averaging step (see `references/swap-and-discard.md`) and the final evalGrade computation.
+
+2. **Append evaluator-drift footer to each drift finding.** For EACH entry in `driftFindings`, append a footer before storing in `run-result.json`:
 
 For cross-vendor cases (agent.vendor !== prod.vendor):
 
@@ -72,6 +102,8 @@ For intra-vendor cases (agent.vendor === prod.vendor):
 For unknown agent cases:
 
 > *Note: This finding came from an evaluator we couldn't identify. Interpret with full skepticism and verify against a sample user before acting.*
+
+The footer is mandatory — never store a drift finding without it. This rule carries forward unchanged from v0.2.
 
 ## Skip conditions
 
