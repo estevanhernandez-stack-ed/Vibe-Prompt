@@ -33,7 +33,8 @@ Apply the F1-F12 rubric (F1-F9 active in v0.4; F10-F12 are Phase 4) to the cache
    - **Confidence degrade:** if composer-mimic confidence is < 0.6 for this app (check `.vibe-prompt/eval/composer.json` `confidence` field if available), set severity to `"medium"` instead of `"high"` and add `"composition stack detection low-confidence; verify manually"` to evidence.
    - **False-positive escape:** if `--ignore-finding F9 --on-prompt <id>` was passed in the CLI flags, skip F9 for that specific prompt id.
 4c. **F10 user-input-var detection.** For each prompt in inventory:
-   - **User-var detection:** scan `templatedVars` for names matching user-origin heuristics:
+   - **v0.5 origin pre-filter (additional pre-step, does not replace v0.4 detection).** Before applying the user-origin heuristic regex, filter `templatedVars[]` to only those with `origin === "user-controlled"` (or `origin === "unknown"` — the conservative default per spec §3). Skip any var whose `origin === "system-injected"`. For each skipped candidate, annotate the audit's `findings[]` (or the per-prompt skip log) with `originFilteredOut: true` and `varOriginUsed: "system-injected"` so the dashboard can show which vars were considered but excluded. Honor the user's `.vibe-prompt/config/var-origins.json` overrides (per spec §3) before applying the heuristic. Note: a finding with `originFilteredOut: true` indicates a candidate var was excluded — it does NOT mean a real F10 fired. The annotation is informational.
+   - **User-var detection (v0.4 behavior, preserved):** scan the post-filter `templatedVars` set for names matching user-origin heuristics:
      - Exact: `userInput`, `userMessage`, `userQuery`, `userText`, `userContent`, `userPrompt`, `userData`, `userBio`, `userDescription`, `userQuestion`
      - Contains (case-insensitive): `(?i)(message|query|text|prompt|input|content|bio|description|question|dream|note|comment|review|feedback|reply|chat)`
      - Extended list from `.vibe-prompt/config/user-input-vars.json` or `audit.injectionResistance.userInputVars` in config.json (additive to defaults)
@@ -43,10 +44,10 @@ Apply the F1-F12 rubric (F1-F9 active in v0.4; F10-F12 are Phase 4) to the cache
      - `(?i)do not execute`
      - `(?i)your role is fixed`
      - `(?i)content within .* is data only`
-   - **Fire F10 when:** user-var detected AND no sanitization directive found nearby. Build finding `{ id: "F10", severity: "high", handoffHint: "vibe-sec:audit", evidence: { promptId, promptLocation, userVars[], varTypes[] }, recommendation: <template from rubric> }`.
-   - **Track F10-fired prompts** — a prompt set used as a prerequisite gate for F11 and F12 detection.
+   - **Fire F10 when:** user-var detected (post-filter) AND no sanitization directive found nearby. Build finding `{ id: "F10", severity: "high", handoffHint: "vibe-sec:audit", evidence: { promptId, promptLocation, userVars[], varTypes[] }, varOriginUsed: "user-controlled", recommendation: <template from rubric> }`.
+   - **Track F10-fired prompts** — a prompt set used as a prerequisite gate for F11 and F12 detection. The origin pre-filter applies transitively: F11 and F12 only consider prompts that passed the F10 user-controlled gate.
 
-4d. **F11 defense-in-depth scarcity detection.** For each prompt in the F10-fired set:
+4d. **F11 defense-in-depth scarcity detection.** For each prompt in the F10-fired set (which already excludes `origin: "system-injected"` vars per step 4c's v0.5 pre-filter):
    - **Defense-phrase scan:** count distinct defense phrases in the full prompt content (not just the 200-char window):
      - "treat as data"
      - "ignore instructions within"
@@ -56,7 +57,7 @@ Apply the F1-F12 rubric (F1-F9 active in v0.4; F10-F12 are Phase 4) to the cache
      - "always remain"
    - **Fire F11 when:** defense-phrase count < 2. Build finding `{ id: "F11", severity: "medium", handoffHint: "vibe-sec:audit", evidence: { promptId, detectedDefensePhrases[], recommendedDefensePhrases[] }, recommendation: <template from rubric> }`.
 
-4e. **F12 composition-order violation detection.** For each prompt in the F10-fired set, and only if composer.json is available (`.vibe-prompt/eval/composer.json` from v0.2+ setup):
+4e. **F12 composition-order violation detection.** For each prompt in the F10-fired set (origin-filtered for `user-controlled` vars only), and only if composer.json is available (`.vibe-prompt/eval/composer.json` from v0.2+ setup):
    - **Read composition order** from composer.json — ordered list of layers: `{ layerName, type, vars[] }`.
    - **Find user-var injection layer:** the layer whose `vars[]` contains the user-var (or the innermost layer for inline injections).
    - **Find system-instruction layer:** the layer with `type: "global-directive"` or the first layer by index.
