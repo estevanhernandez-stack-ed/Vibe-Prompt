@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "vibe-prompt/grade-result",
+  "type": "object",
+  "required": ["version", "runId", "computedAt", "perPrompt", "appComposite"],
+  "properties": {
+    "version": { "type": "string", "const": "0.3" },
+    "runId": { "type": "string" },
+    "computedAt": { "type": "string", "format": "date-time" },
+    "sourceAuditRef": { "type": "string" },
+    "sourceEvalRunRef": { "type": "string" },
+    "perPrompt": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["composite", "dimensions"],
+        "properties": {
+          "composite": { "type": "integer", "minimum": 1, "maximum": 10 },
+          "dimensions": {
+            "type": "object",
+            "required": ["schemaTightness", "personaConsistency", "instructionClarity", "tokenEfficiency"],
+            "properties": {
+              "schemaTightness": { "type": "integer", "minimum": 1, "maximum": 10 },
+              "personaConsistency": { "type": "integer", "minimum": 1, "maximum": 10 },
+              "instructionClarity": { "type": "integer", "minimum": 1, "maximum": 10 },
+              "tokenEfficiency": { "type": "integer", "minimum": 1, "maximum": 10 }
+            }
+          },
+          "vsBaseline": {
+            "type": "object",
+            "properties": {
+              "delta": { "type": "integer" },
+              "status": { "enum": ["improved", "regressed", "stable", "no-prior-baseline"] }
+            }
+          }
+        }
+      }
+    },
+    "appComposite": { "type": "integer", "minimum": 1, "maximum": 10 },
+    "appCompositeVsBaseline": {
+      "type": "object",
+      "properties": {
+        "delta": { "type": "integer" },
+        "status": { "enum": ["improved", "regressed", "stable", "no-prior-baseline"] }
+      }
+    },
+    "flaggedRegressions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["promptId", "dimension", "delta"],
+        "properties": {
+          "promptId": { "type": "string" },
+          "dimension": { "type": "string" },
+          "delta": { "type": "integer" }
+        }
+      }
+    }
+  }
+}
