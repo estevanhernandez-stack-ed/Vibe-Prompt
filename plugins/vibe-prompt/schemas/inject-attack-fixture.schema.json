@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "vibe-prompt/inject-attack-fixture",
+  "type": "object",
+  "required": ["name", "pattern", "category", "severity", "arbitraryTaskExample"],
+  "properties": {
+    "name": { "type": "string" },
+    "pattern": { "type": "string" },
+    "category": {
+      "enum": [
+        "direct-override",
+        "role-assertion",
+        "role-flip",
+        "instruction-deflection",
+        "trust-manipulation",
+        "encoded-payload"
+      ]
+    },
+    "severity": { "enum": ["low", "medium", "high", "critical"] },
+    "arbitraryTaskExample": { "type": "string" },
+    "judgeRubric": { "type": "string" }
+  },
+  "additionalProperties": false
+}
