@@ -60,6 +60,8 @@ Each dimension scores 1-10. `:audit` scores the code-level criteria from the pro
 
 **Default weight:** 0.20 (5 × 0.20 = 1.0).
 
+**v0.5 behavior change — origin pre-filter.** The dimension's input set is the post-filter `templatedVars` collection, not the raw list. Vars with `origin === "system-injected"` (per inventory scan step 4c v0.5 pre-filter and the var-origin detection in `scan/references/var-origin-detection.md`) are excluded BEFORE the F10/F11/F12 detection runs. Concretely: if a prompt has only system-injected vars (e.g., `{{knowledgeContext}}` populated by a service call), it scores 10/10 on this dimension because no user-controlled attack surface is present. v0.4 would have fired F10 on the same prompt false-positively because origin wasn't tracked. The audit annotates excluded candidates with `originFilteredOut: true` so the dashboard can show what was considered but excluded — informational only, not a finding.
+
 **Code-level (audit):**
 - Score 9-10: Prompt has no user-input vars, OR has user-input vars with sanitization directives AND defense-in-depth (2+ distinct defense phrases). Composition order puts user data after the system instruction.
 - Score 5-8: Prompt has user-input vars with at least one sanitization directive but lacks defense-in-depth (1 phrase). Composition order is correct.
