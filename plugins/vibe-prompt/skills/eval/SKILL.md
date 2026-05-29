@@ -5,7 +5,7 @@ description: This skill should be used when the user says "/vibe-prompt:eval", "
 
 # /vibe-prompt:eval
 
-Load `vibe-prompt:guide` first. Then load `references/composer-mimic.md`, `references/vendor-clients.md`, `references/fixture-synthesis.md`, `references/mechanical-comparator.md`, `references/llm-judge-prompt.md`, `references/dashboard-template.md`.
+Load `vibe-prompt:guide` first. Then load `references/composer-mimic.md`, `references/vendor-clients.md`, `references/fixture-synthesis.md`, `references/mechanical-comparator.md`, `references/llm-judge-prompt.md`, `references/dashboard-template.md`, `references/swap-and-discard.md`, and `vibe-prompt:guide/references/calibration-patterns.md`.
 
 ## Inputs
 
@@ -16,7 +16,8 @@ Load `vibe-prompt:guide` first. Then load `references/composer-mimic.md`, `refer
 - `.vibe-prompt/eval/fixtures/*.json` (optional user-provided)
 - CLI flags:
   - `--mode drift` (default) or `--mode upgrade-test --candidate <model>`
-  - `--no-judge` to skip the LLM-judge layer
+  - `--no-judge` to skip the LLM-judge layer entirely (no judge calls, no drift findings, no scores)
+  - `--no-swap` to skip the Swap-and-Discard second judge pass (runs judge once per pair instead of twice; cheaper but position-bias not mitigated)
   - `--no-baseline` to skip the in-session baseline call (only valid in upgrade-test mode)
   - `--parallel <N>` to allow N parallel vendor calls (default: 1)
 
@@ -39,17 +40,27 @@ Load `vibe-prompt:guide` first. Then load `references/composer-mimic.md`, `refer
    - Call prod model via `GeminiClient` (or appropriate vendor) per `references/vendor-clients.md`. Update running cost.
    - Call baseline via `InSessionAgentClient` (drift mode only).
    - Apply mechanical comparator per `references/mechanical-comparator.md`.
-   - Run LLM-judge per `references/llm-judge-prompt.md` (unless `--no-judge`).
+   - **LLM-judge with Swap-and-Discard** per `references/llm-judge-prompt.md` and `references/swap-and-discard.md` (unless `--no-judge`):
+     - Run 1 (original order): dispatch judge with prod as Output A, baseline as Output B. Capture judgment (SWRS shape: strengths_A, weaknesses_A, strengths_B, weaknesses_B, reasoning, scores_A, scores_B, driftFindings).
+     - Run 2 (swapped order): dispatch judge with baseline as Output A, prod as Output B. Capture judgment. Skip if `--no-swap` flag set.
+     - Compare: if the judge favors the same POSITION in both runs (position-tied) → discard as position-bias artifact; set `swapAndDiscard.tiedAndDiscarded = true`; do not include drift findings for this pair; increment tie count. If the judge favors the same UNDERLYING CONTENT in both runs (content-consistent) → accept findings; set `swapAndDiscard.tiedAndDiscarded = false`; average `scores_A` and `scores_B` across both runs for the final per-dimension scores.
+     - Attach the cross-vendor evaluator-drift footer (per `references/llm-judge-prompt.md` post-processing rules) to each accepted drift finding before storing.
    - Append to in-memory eval-result.
    - Check running cost vs ceiling. If exceeded, set `abortedByCostCeiling = true` and break.
 
-6. **Write eval-result.** Atomic write `.vibe-prompt/eval/state/eval-<runId>.json`. Validate against schema.
+6. **Compute evalGrade per prompt.** After all judge calls complete:
+   - For each prompt: average the prod dimension scores across both Swap-and-Discard runs (or the single run if `--no-swap`). Same for baseline. Store in the run-result's `evalGrade.dimensions.prod` and `evalGrade.dimensions.baseline`.
+   - Compute per-prompt composite: weighted average of prod dimension scores (default equal weights). Apply overrides from `.vibe-prompt/grade/weights.json` if present.
+   - Store `evalGrade.composite.prod` and `evalGrade.composite.baseline` per prompt.
+   - Compute tie rate: `tiedCount / totalPairs`. If > 30%, friction-log `swap-and-discard-tie-rate-over-30pct` (medium confidence).
 
-7. **Render dashboard.** Apply `references/dashboard-template.md` to write `docs/vibe-prompt/eval-<runId>.md` in the target app.
+7. **Write eval-result.** Atomic write `.vibe-prompt/eval/state/eval-<runId>.json`. Validate against schema.
 
-8. **Render banner.** ≤ 30 lines. Includes finding counts, cost spent, ceiling status, path to report, next-step suggestion.
+8. **Render dashboard.** Apply `references/dashboard-template.md` to write `docs/vibe-prompt/eval-<runId>.md` in the target app.
 
-9. **Post-flight.** `session-logger` terminal entry with full summary.
+9. **Render banner.** ≤ 30 lines. Includes finding counts, cost spent, ceiling status, evalGrade composite (prod), Swap-and-Discard tie rate, path to report, next-step suggestion.
+
+10. **Post-flight.** `session-logger` terminal entry with full summary.
 
 ## Banner template
 
@@ -64,6 +75,9 @@ Drift detected:
   Medium:       3 prompts
   Low:          2 prompts
   No drift:     4 prompts
+
+Eval grade (prod avg):   6.2 / 10  [schema 7 · persona 4 · clarity 7 · tokens 7]
+Swap-and-Discard:        14 pairs · 2 tied/discarded (14% tie rate)
 
 Cost spent:     $0.17 of $2.00 ceiling
 Fixtures:       12 synthesized, 2 user-provided
