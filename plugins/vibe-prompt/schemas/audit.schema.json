@@ -28,7 +28,16 @@
               }
             }
           },
-          "recommendation": { "type": "string" }
+          "recommendation": { "type": "string" },
+          "scores": {
+            "type": "object",
+            "properties": {
+              "schemaTightness": { "type": "integer", "minimum": 1, "maximum": 10 },
+              "personaConsistency": { "type": "integer", "minimum": 1, "maximum": 10 },
+              "instructionClarity": { "type": "integer", "minimum": 1, "maximum": 10 },
+              "tokenEfficiency": { "type": "integer", "minimum": 1, "maximum": 10 }
+            }
+          }
         }
       }
     },
@@ -46,6 +55,30 @@
             "advisory": { "type": "integer" }
           }
         }
+      }
+    },
+    "auditGrade": {
+      "type": "object",
+      "properties": {
+        "perPrompt": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "composite": { "type": "integer", "minimum": 1, "maximum": 10 },
+              "dimensions": {
+                "type": "object",
+                "properties": {
+                  "schemaTightness": { "type": "integer", "minimum": 1, "maximum": 10 },
+                  "personaConsistency": { "type": "integer", "minimum": 1, "maximum": 10 },
+                  "instructionClarity": { "type": "integer", "minimum": 1, "maximum": 10 },
+                  "tokenEfficiency": { "type": "integer", "minimum": 1, "maximum": 10 }
+                }
+              }
+            }
+          }
+        },
+        "appComposite": { "type": "integer", "minimum": 1, "maximum": 10 }
       }
     }
   }
