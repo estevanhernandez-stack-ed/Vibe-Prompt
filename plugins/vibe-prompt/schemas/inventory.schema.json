@@ -1,6 +1,24 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "vibe-prompt/inventory",
+  "$defs": {
+    "templatedVar": {
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "required": ["name"],
+          "properties": {
+            "name": { "type": "string" },
+            "source": { "enum": ["handlebars", "template-literal", "concat", "jsx-attr"] },
+            "declaredAt": { "type": "string" },
+            "origin": { "enum": ["user-controlled", "system-injected", "unknown"] },
+            "originConfidence": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        }
+      ]
+    }
+  },
   "type": "object",
   "required": ["version", "scannedAt", "targetApp", "registry", "inlinePrompts", "personas", "modelIdentifiers"],
   "properties": {
@@ -33,7 +51,7 @@
               "category": { "type": "string" },
               "version": { "type": "string" },
               "outputShape": { "enum": ["prose", "json-object", "json-array", "multimodal-in"] },
-              "templatedVars": { "type": "array", "items": { "type": "string" } },
+              "templatedVars": { "type": "array", "items": { "$ref": "#/$defs/templatedVar" } },
               "voiceBearing": { "type": "boolean" },
               "personaLabel": { "type": ["string", "null"] }
             }
@@ -52,7 +70,7 @@
           "endLine": { "type": "integer" },
           "personaLabel": { "type": ["string", "null"] },
           "outputShape": { "enum": ["prose", "json-object", "json-array", "multimodal-in"] },
-          "templatedVars": { "type": "array", "items": { "type": "string" } },
+          "templatedVars": { "type": "array", "items": { "$ref": "#/$defs/templatedVar" } },
           "voiceBearing": { "type": "boolean" },
           "hasFallback": { "type": "boolean" },
           "estimatedTokens": { "type": "integer" }
