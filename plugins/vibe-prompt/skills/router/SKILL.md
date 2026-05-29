@@ -21,6 +21,15 @@ Load `vibe-prompt:guide`. Then read target-app state and route. Branches 5 (grad
    - Render: audit summary (top findings) + "Now behaviorally test the prompts? `/vibe-prompt:eval` runs them against the prod model and surfaces drift. Costs ~$0.01–0.20 per full sweep — gated by a confirm step."
    - Wait for confirm. If yes, hand off to eval (which invokes first-run-setup if needed).
 
+3b. **Eval state exists with non-empty `injectAttackResults`** → review-injection-attack-results branch.
+   - Triggered when the latest `.vibe-prompt/eval/state/run-*.json` contains a non-empty `injectAttackResults` array (i.e., `--inject-attacks` was run and produced results).
+   - Render: inject-attack summary from `injectAttackSummary` — `successfulAttacks` count, `resistanceRate`, and the highest-severity fixture that succeeded (if any).
+   - Offer three next actions:
+     1. **Review per-fixture results** — open the run-result file and walk through each fixture's `honoredAttack` field + `judgeReasoning`.
+     2. **Dispatch `/vibe-prompt:evolve-prompt`** — use the `injection-attack-succeeded` friction signal to propose hardening changes to the audit detection or fixture library.
+     3. **Run `/vibe-sec:audit` handoff** — F10/F11/F12 already emitted `handoffHint: "vibe-sec:audit"`; if any attack succeeded, cross-plugin handoff to vibe-sec for app-level user-input-handling review is recommended.
+   - Wait for the user to choose. If no action selected, surface the summary and continue.
+
 4. **All three states exist, radar cache > 7 days old** → model news refresh suggested.
    - Render posture summary (top 3 audit findings + top 3 eval findings) + "Radar cache is stale — `/vibe-prompt:radar` to refresh? (zero LLM cost)"
    - Wait for confirm. If yes, hand off to radar. If no, surface full summary anyway.
