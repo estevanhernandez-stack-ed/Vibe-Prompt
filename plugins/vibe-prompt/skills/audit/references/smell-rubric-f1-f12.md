@@ -208,17 +208,28 @@ The detection is best-effort and may require the agent to read the actual conten
 
 ## F12 — User-controlled var appears at or before system instruction
 
-**Severity (default):** critical
+**Severity (default):** critical (degrades to `high` when composer-mimic confidence < 0.6)
 **Score impact (v0.4):** injectionResistance −6, persona-consistency −2
-**Phase:** 4 (implementation pending — section is placeholder for rubric completeness).
 
 **Detection rule:**
-1. **F10 prerequisite:** prompt has detected user-var.
-2. **Composer-mimic analysis required:** identify the composition order from composer.json (v0.2 artifact). Determine the layer at which each var is injected.
-3. **Fire when:** the user-var's injection layer is at or before the layer containing the primary system instruction.
-4. If composer-mimic confidence < 0.6, severity degrades to `high` (not `critical`) with evidence noting "composition order detection low-confidence."
+1. **F10 prerequisite:** prompt has detected user-var (F10 must fire first — F12 is skipped for any prompt where F10 did not fire).
+2. **Composer-mimic analysis required:** read composition order from `composer.json` (`.vibe-prompt/eval/composer.json`, the v0.2 artifact). Each entry in the ordered layer list has `{ layerName, type, vars[], index }`. If composer.json is absent, F12 fires with severity `high` and notes "composer.json not present; composition order detection low-confidence; verify manually."
+3. **Identify user-var injection layer:** find the layer whose `vars[]` contains the detected user-var name. Layer `index` is the 0-based position in the composition stack.
+4. **Identify system-instruction layer:** find the layer with `type: "global-directive"` or `type: "system-instruction"`, or fall back to the layer at index 0.
+5. **Fire when:** user-var injection layer `index` ≤ system-instruction layer `index`. The model receives user-controlled content at or before its role definition, which can override or color the system instruction.
+6. **Confidence degrade:** if `composer.json` `confidence` field < 0.6, severity degrades from `critical` to `high` and evidence notes "composition order detection low-confidence; verify manually." When 2+ defense phrases are present, F12 does NOT fire.
 
-**Cross-plugin handoff:** finding includes `handoffHint: "vibe-sec:audit"` and `severity: "critical"`.
+**Evidence:**
+- `evidence.promptId`
+- `evidence.userVar` — the matched user-input var name
+- `evidence.userVarLayer` — the layer name/type where the user-var is injected (e.g., "task content", "data section")
+- `evidence.systemInstructionLayer` — the layer name/type of the primary system instruction
+- `evidence.compositionOrder` — full ordered list of layer names from composer.json
+
+**Recommendation template:**
+> The `{promptId}` prompt allows `{userVar}` to be injected at the `{userVarLayer}` layer, which is at or before the system instruction layer (`{systemInstructionLayer}`). The composer's order matters — anything before the system instruction can override it. Restructure composition: system instruction MUST be in the first layer; user data MUST be in a dedicated `[DATA]` block in the last layer. Update `{composerFilePath}` accordingly.
+
+**Cross-plugin handoff:** finding includes `handoffHint: "vibe-sec:audit"` and `severity: "critical"` (or `"high"` when confidence-degraded).
 
 ---
 
