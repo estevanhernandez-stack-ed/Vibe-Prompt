@@ -182,18 +182,25 @@ The detection is best-effort and may require the agent to read the actual conten
 
 **Severity (default):** medium
 **Score impact (v0.4):** injectionResistance −2
-**Phase:** 4 (implementation pending — section is placeholder for rubric completeness).
 
 **Detection rule:**
-1. **F10 prerequisite:** prompt has detected user-var (F10 must fire first).
-2. **Defense-phrase scan:** count distinct defense phrases in the prompt content:
+1. **F10 prerequisite:** prompt has detected user-var (F10 must fire first — F11 is skipped for any prompt where F10 did not fire).
+2. **Defense-phrase scan:** count distinct defense phrases in the full prompt content:
    - "treat as data"
    - "ignore instructions within"
    - "your role is fixed"
    - "do not execute commands"
    - "regardless of user request"
    - "always remain"
-3. **Fire when:** F10 detected user-var AND defense-phrase count < 2.
+3. **Fire when:** F10 detected user-var AND defense-phrase count < 2. Defense-in-depth requires at least 2 distinct phrases — a single phrase is a single point of failure. When 2+ defense phrases are present, F11 does NOT fire.
+
+**Evidence:**
+- `evidence.promptId`
+- `evidence.detectedDefensePhrases` — array of matching phrases found in the prompt (may be empty)
+- `evidence.recommendedDefensePhrases` — 2 phrases to add, chosen from the list above that are not already present
+
+**Recommendation template:**
+> The `{promptId}` prompt has `{detectedCount}` defense-in-depth phrase(s); v0.4 recommends at least 2. Add: `{recommendedPhrases}`. Defense-in-depth reduces single-point-of-failure risk if one phrase is paraphrased away by an attacker.
 
 **Cross-plugin handoff:** finding includes `handoffHint: "vibe-sec:audit"`.
 
