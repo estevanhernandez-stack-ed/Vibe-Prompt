@@ -17,6 +17,8 @@
           "smell": { "type": "string" },
           "severity": { "enum": ["high", "medium", "low", "advisory", "critical"] },
           "handoffHint": { "type": "string" },
+          "originFilteredOut": { "type": "boolean" },
+          "varOriginUsed": { "enum": ["user-controlled", "system-injected", "unknown"] },
           "evidence": {
             "type": "array",
             "items": {
