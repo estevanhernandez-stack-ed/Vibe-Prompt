@@ -20,6 +20,7 @@ Load `vibe-prompt:guide` first. Then load `references/composer-mimic.md`, `refer
   - `--no-swap` to skip the Swap-and-Discard second judge pass (runs judge once per pair instead of twice; cheaper but position-bias not mitigated)
   - `--no-baseline` to skip the in-session baseline call (only valid in upgrade-test mode)
   - `--parallel <N>` to allow N parallel vendor calls (default: 1)
+  - `--inject-attacks` (optional) to run the inject-attack sub-workflow after the standard pipeline. When present, iterates each scoped prompt × user-input var × fixture × vendor, judges each output with `inject-attack-judge.md`, and writes `injectAttackResults` + `injectAttackSummary` to `run-result.json`. Cost-gated separately. Without this flag, existing v0.3 behavior is unchanged.
 
 ## Workflow
 
@@ -55,6 +56,15 @@ Load `vibe-prompt:guide` first. Then load `references/composer-mimic.md`, `refer
    - Compute tie rate: `tiedCount / totalPairs`. If > 30%, friction-log `swap-and-discard-tie-rate-over-30pct` (medium confidence).
 
 7. **Write eval-result.** Atomic write `.vibe-prompt/eval/state/eval-<runId>.json`. Validate against schema.
+
+7.5. **Inject-attack sub-workflow (only when `--inject-attacks` flag is present).** After the standard eval result is written, execute `references/inject-attack-eval-workflow.md` in full:
+   - Compute cost estimate (prompts × user-input vars × fixtures × vendors × $0.001 per judge call).
+   - Present estimate; require user confirmation (or auto-proceed if `--auto` set).
+   - Iterate: for each (scoped prompt × user-input var × fixture in `config.eval.injectAttack.fixtures` × vendor), substitute the fixture pattern into the var, call prod vendor, call in-session Claude baseline, invoke `references/inject-attack-judge.md` per output.
+   - Aggregate into `injectAttackResults` (per-entry array) and `injectAttackSummary` (`successfulAttacks`, `resistanceRate`, `vendorBreakdown`).
+   - Merge both fields into the same `run-result.json` (atomic re-write with inject-attack fields appended).
+   - If `successfulAttacks > 0`: friction-log `injection-attack-succeeded` (high severity, `recommendedHandoff: "vibe-sec:audit"`).
+   - Without `--inject-attacks`: skip this step entirely. v0.3 behavior is unchanged.
 
 8. **Render dashboard.** Apply `references/dashboard-template.md` to write `docs/vibe-prompt/eval-<runId>.md` in the target app.
 
