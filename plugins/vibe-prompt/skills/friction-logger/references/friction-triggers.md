@@ -82,3 +82,12 @@ Single source of truth for which command logs which friction at which confidence
 |---|---|---|
 | `iterate-suggestion-implemented` | high | User actually built a `:iterate` suggestion (verifiable by next `:scan` finding the new prompt). Positive signal — suggestion engine is valuable. |
 | `iterate-suggestion-dismissed-as-off-domain` | medium | User flagged a suggestion as wrong for the app. Signal to tighten domain detection. |
+
+## remediate triggers (v0.5)
+
+| Trigger code | Confidence | When |
+|---|---|---|
+| `staged-fix-applied-and-eval-confirms-improvement` | high | After `:remediate --apply-pending <findingId>` and a follow-up `:eval` + `:grade`, the prompt's composite advanced (positive signal — the recommendation template is paying off). Validates the diff-category template, the confidence rubric, and the post-apply guidance loop. |
+| `staged-fix-rejected` | medium | User reviewed a staged diff and rejected it via `:remediate --reject-pending <findingId>`. Signal that the confidence rubric over-rated the proposal, OR the template for that finding category needs tuning for this app's voice. Tune category routing or rubric weights. |
+| `auto-write-rolled-back` | high | User rolled back an auto-applied diff via `:remediate --rollback <ISO-timestamp>`. Strong signal that the auto-write confidence threshold is too low for the affected category, OR the diff template doesn't fit this app's structure. Lower the `autoApplyThreshold` OR tune the category template. |
+| `composer-auto-generation-confidence-low` | medium | `:first-run-setup` ran composer.json auto-generation and produced `globalConfidence < 0.5` (or fewer than 2 layers identified). Signal that the composer-detection heuristics missed this app's pattern. Extend the layer-classification regex catalog or surface a manual-verification prompt. |
