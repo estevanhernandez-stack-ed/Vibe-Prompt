@@ -13,12 +13,38 @@
         "type": "object",
         "required": ["id", "smell", "severity", "evidence", "recommendation"],
         "properties": {
-          "id": { "enum": ["F1", "F1b", "F2", "F3", "F4", "F5", "F6", "F7", "F9", "F10", "F11", "F12"] },
+          "id": { "enum": ["F1", "F1b", "F2", "F3", "F4", "F5", "F6", "F7", "F9", "F10", "F11", "F12", "F13"] },
           "smell": { "type": "string" },
           "severity": { "enum": ["high", "medium", "low", "advisory", "critical"] },
           "handoffHint": { "type": "string" },
           "originFilteredOut": { "type": "boolean" },
           "varOriginUsed": { "enum": ["user-controlled", "system-injected", "unknown"] },
+          "apiParameterContext": {
+            "type": "object",
+            "description": "v0.6+. Populated when F12 fires. Captures the API parameter separation analysis used by F12 API-parameter-aware detection.",
+            "properties": {
+              "userVarApiParameter": {
+                "enum": ["systemInstruction", "contents", "messages", "instructions", "prompt", null]
+              },
+              "systemInstructionApiParameter": {
+                "enum": ["systemInstruction", "contents", "messages", "instructions", "prompt", null]
+              },
+              "separationVerified": { "type": "boolean" }
+            }
+          },
+          "voiceFrameContradictions": {
+            "type": "array",
+            "description": "v0.6+. Populated when Category B voice-frame extension fires. Lists detected voice-frame phrases that contradict global-directive voice rules.",
+            "items": {
+              "type": "object",
+              "required": ["phrase", "location", "banSource"],
+              "properties": {
+                "phrase": { "type": "string" },
+                "location": { "type": "string" },
+                "banSource": { "type": "string" }
+              }
+            }
+          },
           "evidence": {
             "type": "array",
             "items": {
