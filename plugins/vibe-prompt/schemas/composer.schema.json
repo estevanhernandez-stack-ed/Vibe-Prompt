@@ -16,11 +16,38 @@
         "required": ["id", "type", "text"],
         "properties": {
           "id": { "type": "string" },
-          "type": { "enum": ["literal", "directive-field", "knowledge-injection", "task-instruction", "conditional"] },
+          "type": {
+            "enum": [
+              "literal",
+              "directive-field",
+              "global-directive",
+              "knowledge-injection",
+              "task-instruction",
+              "conditional"
+            ],
+            "description": "Layer kind. `directive-field` is a v0.5 deprecated alias preserved for backward compat; v0.6+ first-run-setup emits `global-directive` for persona/master-directive layers."
+          },
           "text": { "type": "string" },
           "condition": { "type": ["string", "null"] },
           "order": { "type": "integer" },
-          "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "apiParameter": {
+            "enum": [
+              "systemInstruction",
+              "contents",
+              "messages",
+              "instructions",
+              "prompt",
+              null
+            ],
+            "description": "v0.6+. Which API parameter this layer is destined for. `null` = unknown (degrades F12 detection to v0.5 layer-order behavior)."
+          },
+          "apiParameterConfidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "v0.6+. Confidence of the apiParameter heuristic match."
+          }
         }
       }
     }
