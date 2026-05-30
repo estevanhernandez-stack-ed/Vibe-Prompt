@@ -89,6 +89,36 @@ Category B (v0.5 behavior) continues unaffected.
 When the global-directive layer is absent or empty, voice-rule extraction
 returns zero rules; the voice-frame sub-category silently skips.
 
+**v0.6 voice-frame phrase detection (Category B sub-category split).** After
+voice-rule extraction, scan task prompt content for voice-frame phrase clusters
+using the three pattern families documented in `references/voice-frame-detection.md`:
+
+1. **Archaic vocabulary** — regex on known archaic patterns ("thou", "verily",
+   "ancient", "veil", "mercury", "prophetic", "quatrain", "Fellow").
+2. **Ritualistic framing** — phrases that frame the LLM as a sacred act
+   ("the cosmos", "the divine", "the source", "sacred reading", "revealed unto").
+3. **Capitalized abstract nouns** — `the Pilgrim`, `the Way`, `the Source`,
+   `the Path`, `the Seeker`, `the Truth of ...`.
+
+Each match emits a `{phrase, location, banSource}` triple. `phrase` is the
+literal text matched; `location` is `{file, line, columnStart, columnEnd}` from
+the inventory/registry locator; `banSource` is the extracted voice rule whose
+ban (explicit or implied) the phrase contradicts.
+
+Aggregate the triples into a `voiceFrameContradictions` array on the audit
+finding (per `audit.schema.json` v0.6 extension). The audit emits the array;
+:remediate consumes it to drive Category B sub-category routing in step 3a.
+
+**Fixture coverage anchor.** The Celestia3 natal_interpretation prompt is the
+canonical fixture: "quatrain-style narrative", "shattering of the veil", "ancient
+dust", "mirrors of mercury", "prophetic shadows" all match the archaic-vocabulary
+patterns above, each mapping its `banSource` to either an explicit ban or the
+"plain modern language" persona-affirmation implied ban.
+
+Voice-frame findings inside code fences, `[BRACKETS]` blocks, or templated vars
+are suppressed (those are structural markup, not voice). The locator step
+consults `inventory.json` to identify these structural zones.
+
 For each grouped finding:
 
 1. Locate the target file + range using:
