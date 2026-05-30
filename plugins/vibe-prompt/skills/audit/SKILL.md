@@ -57,12 +57,20 @@ Apply the F1-F12 rubric (F1-F9 active in v0.4; F10-F12 are Phase 4) to the cache
      - "always remain"
    - **Fire F11 when:** defense-phrase count < 2. Build finding `{ id: "F11", severity: "medium", handoffHint: "vibe-sec:audit", evidence: { promptId, detectedDefensePhrases[], recommendedDefensePhrases[] }, recommendation: <template from rubric> }`.
 
-4e. **F12 composition-order violation detection.** For each prompt in the F10-fired set (origin-filtered for `user-controlled` vars only), and only if composer.json is available (`.vibe-prompt/eval/composer.json` from v0.2+ setup):
-   - **Read composition order** from composer.json — ordered list of layers: `{ layerName, type, vars[] }`.
+4e. **F12 composition-order violation detection (API-parameter-aware, v0.6+).** For each prompt in the F10-fired set (origin-filtered for `user-controlled` vars only), and only if composer.json is available (`.vibe-prompt/eval/composer.json` from v0.2+ setup):
+   - **Read composition order** from composer.json — ordered list of layers: `{ layerName, type, vars[], apiParameter }`.
    - **Find user-var injection layer:** the layer whose `vars[]` contains the user-var (or the innermost layer for inline injections).
-   - **Find system-instruction layer:** the layer with `type: "global-directive"` or the first layer by index.
-   - **Fire F12 when:** user-var layer index ≤ system-instruction layer index. Build finding `{ id: "F12", severity: "critical", handoffHint: "vibe-sec:audit", evidence: { promptId, userVar, userVarLayer, systemInstructionLayer, compositionOrder[] }, recommendation: <template from rubric> }`.
-   - **Confidence degrade:** if composer.json `confidence` field < 0.6 (or composer.json is absent), F12 severity degrades from `critical` to `high` and evidence notes "composition order detection low-confidence; verify manually."
+   - **Find system-instruction layer:** the layer with `type: "global-directive"` (or v0.5 legacy `directive-field` for persona/master-directive id) or the first layer by index.
+   - **Step 1 — apiParameter separation check (v0.6+, applied FIRST before layer-order logic):**
+     - Read `apiParameter` from each layer (user-var and system-instruction).
+     - **If user-var layer `apiParameter` is `"contents"` OR `"messages"` AND system-instruction layer `apiParameter` is `"systemInstruction"`** → the API parameter structurally segregates user content from the system instruction. F12 does **NOT** fire (structurally safe regardless of layer order). Emit no finding for this prompt. The audit annotates the finding-skip log entry with `apiParameterContext: { userVarApiParameter, systemInstructionApiParameter, separationVerified: true }`.
+     - **If both layers share the SAME `apiParameter`** (e.g., both interpolated into the same `systemInstruction` string, or both inside the `messages[]` array) → composition order matters within that parameter. Fall through to step 2 (v0.5 layer-order rule).
+     - **If either layer's `apiParameter` is `null` (unknown)** → API-parameter check is inconclusive. Fall through to step 2 but mark severity for confidence-degrade per step 3 below.
+   - **Step 2 — Fire F12 when:** user-var layer index ≤ system-instruction layer index AND step 1 did not declare structural safety. Build finding `{ id: "F12", severity: "critical", handoffHint: "vibe-sec:audit", evidence: { promptId, userVar, userVarLayer, systemInstructionLayer, compositionOrder[] }, apiParameterContext: { userVarApiParameter, systemInstructionApiParameter, separationVerified: false }, recommendation: <template from rubric> }`.
+   - **Step 3 — Confidence degrade:** severity degrades from `critical` to `high` and evidence notes "composition order detection low-confidence; verify manually" when ANY of:
+     - composer.json `globalConfidence` < 0.6
+     - composer.json is absent
+     - either layer's `apiParameter` is `null` (unknown destination — v0.6 fallback path)
 
 5. **Compose summary.** Count findings by severity → `summary.byCategory`. Total → `summary.totalFindings`.
 6. **Compute per-prompt scores.** Per `references/scoring-dimensions.md` and the Score impact sections in `references/smell-rubric-f1-f12.md`:

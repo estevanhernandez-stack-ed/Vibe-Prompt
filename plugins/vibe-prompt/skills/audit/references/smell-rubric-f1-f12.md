@@ -208,16 +208,23 @@ The detection is best-effort and may require the agent to read the actual conten
 
 ## F12 — User-controlled var appears at or before system instruction
 
-**Severity (default):** critical (degrades to `high` when composer-mimic confidence < 0.6)
+**Severity (default):** critical (degrades to `high` when composer-mimic confidence < 0.6, or when `apiParameter` is `null` per v0.6 fallback)
 **Score impact (v0.4):** injectionResistance −6, persona-consistency −2
 
-**Detection rule:**
+**Detection rule (v0.6 API-parameter-aware):**
 1. **F10 prerequisite:** prompt has detected user-var (F10 must fire first — F12 is skipped for any prompt where F10 did not fire).
-2. **Composer-mimic analysis required:** read composition order from `composer.json` (`.vibe-prompt/eval/composer.json`, the v0.2 artifact). Each entry in the ordered layer list has `{ layerName, type, vars[], index }`. If composer.json is absent, F12 fires with severity `high` and notes "composer.json not present; composition order detection low-confidence; verify manually."
+2. **Composer-mimic analysis required:** read composition order from `composer.json` (`.vibe-prompt/eval/composer.json`, the v0.2 artifact). Each entry in the ordered layer list has `{ layerName, type, vars[], index, apiParameter, apiParameterConfidence }`. If composer.json is absent, F12 fires with severity `high` and notes "composer.json not present; composition order detection low-confidence; verify manually."
 3. **Identify user-var injection layer:** find the layer whose `vars[]` contains the detected user-var name. Layer `index` is the 0-based position in the composition stack.
-4. **Identify system-instruction layer:** find the layer with `type: "global-directive"` or `type: "system-instruction"`, or fall back to the layer at index 0.
-5. **Fire when:** user-var injection layer `index` ≤ system-instruction layer `index`. The model receives user-controlled content at or before its role definition, which can override or color the system instruction.
-6. **Confidence degrade:** if `composer.json` `confidence` field < 0.6, severity degrades from `critical` to `high` and evidence notes "composition order detection low-confidence; verify manually." When 2+ defense phrases are present, F12 does NOT fire.
+4. **Identify system-instruction layer:** find the layer with `type: "global-directive"` (or legacy `directive-field` for persona/master-directive ids), or fall back to the layer at index 0.
+5. **apiParameter separation check (v0.6+, applied FIRST):**
+   - If user-var layer `apiParameter` ∈ {`"contents"`, `"messages"`} AND system-instruction layer `apiParameter === "systemInstruction"` → the API enforces structural separation regardless of layer order. **F12 does NOT fire.** Annotate evidence with `apiParameterContext: { userVarApiParameter, systemInstructionApiParameter, separationVerified: true }`.
+   - If both layers share the same `apiParameter` → composition order matters within that parameter. Fall through to step 6 (v0.5 layer-order rule).
+   - If either layer's `apiParameter === null` (unknown) → composition can't be reasoned about deterministically. Fall through to step 6 BUT mark severity for confidence-degrade to `high` per step 7.
+6. **Fire when** (v0.5 fallback / same-apiParameter branch): user-var injection layer `index` ≤ system-instruction layer `index` AND step 5 did not declare structural safety. The model receives user-controlled content at or before its role definition, which can override or color the system instruction.
+7. **Confidence degrade:** severity degrades from `critical` to `high` and evidence notes "composition order detection low-confidence; verify manually" when ANY of:
+   - `composer.json` `globalConfidence` field < 0.6
+   - composer.json is absent
+   - either layer's `apiParameter === null` (v0.6 fallback signal)
 
 **Evidence:**
 - `evidence.promptId`
