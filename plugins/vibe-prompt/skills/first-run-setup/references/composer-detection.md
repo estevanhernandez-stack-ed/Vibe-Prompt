@@ -120,6 +120,74 @@ For the chosen primary composer file:
    - `sourceLine` — line in the composer file where the segment appears
    - `condition` — null for unconditional layers; `If <expr>` when wrapped in `if (...)` blocks
 
+## Stage 2b — apiParameter detection (v0.6+)
+
+For every traced layer candidate, identify **which API parameter** the layer's text is destined for in the SDK call. This drives F12 API-parameter-aware detection: when user-var layers are at `apiParameter: "contents"` and system-instruction layers are at `apiParameter: "systemInstruction"`, the API enforces structural separation regardless of layer order, so F12 does NOT need to fire.
+
+Heuristics catalog:
+
+| Call-site pattern | `apiParameter` | Confidence |
+|---|---|---|
+| Layer concatenated into `systemInstruction:` arg of `generateContent({...})` (Gemini) or accumulated into a `systemInstruction` variable passed there | `systemInstruction` | 0.95 |
+| Layer concatenated into a `system:` arg of `messages.create({...})` (Anthropic) | `systemInstruction` | 0.90 |
+| Layer interpolated into `contents[].parts[].text` (Gemini) — i.e. the user-turn `parts` array | `contents` | 0.85 |
+| Layer interpolated into `messages[].content` (OpenAI / Anthropic chat completions) | `messages` | 0.85 |
+| Layer interpolated into the single `prompt:` string passed to OpenAI **completions** (legacy text-completion endpoint) | `prompt` | 0.85 |
+| Layer interpolated into an `instructions:` arg (vendor-specific instructions parameter) | `instructions` | 0.80 |
+| Call pattern unknown / could not be traced to a named API parameter | `null` (unknown) | 0.0 |
+
+### How to apply
+
+1. From Stage 2's traced call site, identify which **named argument** of the SDK function receives the layer's text. Walk the assignment chain backwards if necessary (e.g., layer appends to a local variable `systemPart`, which is then passed as `systemInstruction: systemPart`).
+2. Match the named argument against the table above.
+3. Write `apiParameter` + `apiParameterConfidence` on the layer record.
+4. If no match (e.g., the layer feeds a custom wrapper, the destination is computed dynamically, or the SDK pattern wasn't recognized), emit `apiParameter: null` and `apiParameterConfidence: 0.0`. F12 detection treats `null` as "unknown" and degrades to v0.5 layer-order behavior for that layer.
+
+### Worked examples
+
+Gemini systemInstruction layer (confidence 0.95):
+```ts
+let systemInstruction = `[PERSONA]\n${directive.persona}\n\n`;
+systemInstruction += `[MASTER DIRECTIVE]\n${directive.masterDirective}\n\n`;
+await technomancerModel.generateContent({
+  systemInstruction,
+  contents: [{ role: 'user', parts: [{ text: dreamText }] }],
+});
+```
+The `[PERSONA]` + `[MASTER DIRECTIVE]` layers → `apiParameter: "systemInstruction"`. The `dreamText` user-data layer → `apiParameter: "contents"` (interpolated into `contents[].parts[].text`).
+
+OpenAI messages layer (confidence 0.85):
+```ts
+const messages = [
+  { role: 'system', content: persona },
+  { role: 'user', content: userInput },
+];
+await client.chat.completions.create({ messages, model });
+```
+The `persona` layer (system role) → `apiParameter: "messages"` with confidence 0.85 (the role discriminator further distinguishes it as the system message inside `messages[]`). The `userInput` layer (user role) → `apiParameter: "messages"`. F12 will note both layers share `apiParameter: "messages"` and fall through to v0.5 layer-order analysis — appropriate, since messages-array order DOES matter.
+
+OpenAI completions prompt (legacy):
+```ts
+const promptStr = `${systemPart}\n\n${userInput}`;
+await client.completions.create({ prompt: promptStr, model });
+```
+Both `systemPart` and `userInput` → `apiParameter: "prompt"`. F12 falls through to layer-order analysis — the legacy completions endpoint has no structural separation.
+
+### Confidence calibration
+
+| Match quality | Confidence |
+|---|---|
+| Named-arg match + direct variable trace (no intermediate computation) | 0.95 |
+| Named-arg match + traced through one local variable | 0.85-0.90 |
+| Named-arg match + traced through 2+ variables OR helper function | 0.65-0.80 |
+| Unknown call pattern OR computed property destination | 0.0 (null) |
+
+### Friction trigger
+
+When any layer in a composer.json emits `apiParameter: null`, friction-log `f12-api-parameter-detection-low-confidence` (medium) at composer.json emission time. This surfaces to `/evolve-prompt` so detection patterns can be tuned via friction-driven SKILL edits.
+
+---
+
 ## Stage 3 — Layer classification
 
 Apply heuristics to each layer candidate to assign `type`:
