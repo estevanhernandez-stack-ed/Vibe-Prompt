@@ -225,10 +225,12 @@ Write `.vibe-prompt/eval/composer.json`. Schema (see `composer.schema.json`):
   "layers": [
     {
       "id": "directive-persona",
-      "type": "directive-field",
+      "type": "global-directive",
       "text": "<verbatim persona text>",
       "order": 1,
-      "confidence": 0.95
+      "confidence": 0.95,
+      "apiParameter": "systemInstruction",
+      "apiParameterConfidence": 0.95
     },
     {
       "id": "directive-master",
@@ -262,7 +264,7 @@ Write `.vibe-prompt/eval/composer.json`. Schema (see `composer.schema.json`):
 }
 ```
 
-`globalConfidence` is the weighted average of per-layer confidences. When ≥4 layers classify cleanly, target is ≥0.7.
+`globalConfidence` is the weighted average of per-layer confidences. v0.6+ extends the weighted average to incorporate `apiParameterConfidence` as a co-equal signal alongside `confidence` (per-layer formula: `(confidence + apiParameterConfidence) / 2`). When ≥4 layers classify cleanly with apiParameter resolved, target is ≥0.7. Layers with `apiParameter: null` drag globalConfidence down (their contribution is `(confidence + 0) / 2`).
 
 `regenerationSource`:
 - `auto-detected` — all layers found via heuristics, no user edits.
