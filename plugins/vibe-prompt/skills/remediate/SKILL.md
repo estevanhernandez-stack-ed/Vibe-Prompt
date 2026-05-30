@@ -30,6 +30,8 @@ like `/vibe-sec:fix`, with structural-edit-aware staging.
 | `--auto-apply` | OPTIONAL | CI mode — bypass user gate, write all ≥0.90 diffs. |
 | `--skip-f12` | OPTIONAL | Suppress the F12 handoff banner for this run. |
 | `--apply-contradictions` | OPTIONAL | Opt-in to auto-write Category B diffs (voice contradictions). |
+| `--apply-voice-frame-fixes` | OPTIONAL | v0.6+. Opt-in to auto-write Category B `voice-frame-rewrite` sub-category diffs. Without this flag, voice-frame diffs always stage even at ≥0.90 confidence. Independent of `--apply-contradictions`. |
+| `--auto-handoff-vibe-sec` | OPTIONAL | v0.6+. When F12 critical fires, invoke `/vibe-sec:audit` automatically via the Skill tool (scope: `user-input-boundary`). Default is the v0.5 banner-only behavior. Falls back to banner if vibe-sec is not installed. |
 
 ## Workflow
 
