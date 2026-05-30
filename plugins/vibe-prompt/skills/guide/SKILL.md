@@ -101,6 +101,22 @@ v0.4 adds a fifth scoring dimension and three new audit findings that cover LLM-
 
 `:remediate` does not invoke `:eval` or `:grade` automatically — they cost real money and the user owns the gate. The post-apply guidance in the banner names the exact `--prompts` invocation to run next.
 
+## Detection sharpness (v0.6)
+
+v0.6 is a detection-sharpness release. No new commands. Five additions, all aimed at cutting false positives where v0.5's checks lacked structural context.
+
+**F12 API-parameter awareness.** v0.5's F12 fired whenever the composer's user-var layer landed at or before the system-instruction layer in the composition order. That misses the structural truth: if the SDK call segregates layers into distinct API parameters (Gemini's `systemInstruction` vs `contents`, OpenAI's separate `messages` entries), there is no override risk regardless of source-code order. v0.6 reads `apiParameter` and `apiParameterConfidence` per composer layer (populated by `first-run-setup`). F12 short-circuits when both layers route to different API parameters with confidence ≥0.6. When apiParameter is unknown or both layers route to the same parameter, F12 falls through to the v0.5 layer-order check and emits `apiParameterContext` evidence so the user can verify. Confidence-degraded F12 (apiParameter unknown) downgrades from `critical` to `high` per v0.5's fallback rule.
+
+**F13 — Implicit output format (medium).** Fires when a prompt has `[BRACKETS]` placeholder blocks AND 3+ `{{templated_vars}}` AND no explicit `[OUTPUT FORMAT:]` declaration or `[OUTPUT_SCHEMA]` block. Score impact: schema-tightness −2, instruction-clarity −1. Static detection — no LLM call. Recommended fix is a one-line `[OUTPUT FORMAT: prose|JSON|markdown, ...]` declaration. Per-app opt-out via `audit.f13.outputFormatExceptions` config array — list prompt ids that are intentionally flexible (creative-discovery, evaluator-judge, etc.).
+
+**Category B voice-frame depth.** v0.5's Category B handled direct banned-phrase removal. v0.6 extends to voice-frame contradictions — phrases that violate the global directive's voice rules without literally matching a banned-phrase list. Detection: extract voice rules from the global directive (ban list + positive guidance + confidence per rule), scan task-prompt content for voice-frame phrase clusters (archaic vocabulary, ritualistic framing, capitalized abstract nouns), emit `voiceFrameContradictions` evidence. Two sub-categories: `banned-phrase-removal` (confidence 0.75, routes normally) and `voice-frame-rewrite` (confidence 0.65, ALWAYS staged by default). Opt-in to auto-write the voice-frame sub-category via `--apply-voice-frame-fixes`.
+
+**`:remediate --auto-handoff-vibe-sec` flag.** v0.5 emitted a handoff banner when F12 critical fired. v0.6 adds opt-in auto-invocation: when the flag is set AND F12 critical fires AND `vibe-sec:audit` is available via the Skill tool, `:remediate` invokes vibe-sec with `--scope user-input-boundary` (falls back to full audit if the flag isn't accepted), captures findings + exit code, and writes the result to `.vibe-prompt/remediate/state/handoff-vibe-sec-<timestamp>.json`. If vibe-sec is not installed, falls back to v0.5 banner-only behavior and friction-logs `auto-handoff-vibe-sec-unavailable`. vibe-sec's findings do NOT merge into vibe-prompt's `audit.json` — concerns stay separate. The router surfaces the handoff result file on next `/vibe-prompt` invocation (branch `review-vibe-sec-handoff-results`).
+
+**composer.json `global-directive` enum.** v0.5 emitted `directive-field` as the layer type for persona/master-directive content. v0.6 emits `global-directive` — clearer name, same semantics. `directive-field` remains accepted by the schema as a deprecated alias; existing composer.json files keep validating. No migration required.
+
+**No breaking changes.** Every v0.5 artifact (composer.json, audit.json, remediate-result.json, pending-fix.diff front-matter, config.json) validates against v0.6 schemas. New fields are optional.
+
 ## Self-evolution
 
 All command skills invoke `session-logger` at start + end and `friction-logger` at the triggers in `friction-triggers.md`. `evolve-prompt` reads those logs and proposes changes — never auto-applies.
