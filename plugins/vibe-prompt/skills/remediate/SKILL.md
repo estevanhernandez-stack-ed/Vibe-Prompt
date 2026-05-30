@@ -281,8 +281,102 @@ user knows the fix is provisional.
 **Cross-plugin coordination.** The F10/F11 `handoffHint: "vibe-sec:audit"` annotations
 (emitted by the audit) remain advisory after `:remediate` applies a Category C fix —
 vibe-sec still cares about app-level boundary review even after the prompt-level defense
-is added. `:remediate` does NOT auto-invoke vibe-sec (boundary respected); the user
-chooses when to dispatch the handoff.
+is added. `:remediate` does NOT auto-invoke vibe-sec by default (boundary respected); the
+user chooses when to dispatch the handoff via the v0.6 `--auto-handoff-vibe-sec` opt-in
+flag.
+
+## v0.6 auto-handoff workflow (`--auto-handoff-vibe-sec`)
+
+Default behavior (no flag): v0.5 banner-only handoff. The banner above emits and
+:remediate does not invoke any other tool.
+
+When `--auto-handoff-vibe-sec` is passed AND an F12 critical finding fires, the
+workflow extends into an explicit auto-handoff branch:
+
+### Step 1 — Availability check (Skill tool)
+
+Before invoking, check whether the `vibe-sec:audit` Skill is available via the
+Skill tool registry. The check uses the Skill tool's availability lookup — not
+shell exec, not a plugin-config probe.
+
+- **Available** → continue to step 2.
+- **Not installed** → fall back to v0.5 banner-only behavior. Friction-log
+  `auto-handoff-vibe-sec-unavailable` (medium). Do NOT block the rest of
+  :remediate. Emit a one-line notice on the banner explaining the fallback.
+
+### Step 2 — Invoke vibe-sec:audit via the Skill tool
+
+Dispatch the `vibe-sec:audit` Skill with `--scope user-input-boundary` as the
+argument. The Skill tool is the invocation channel — NOT direct shell exec, NOT
+a curl/HTTP call, NOT a separate process. The Skill tool inherits Skill-tool
+context (working directory, environment, permissions); no env vars are passed
+explicitly.
+
+If vibe-sec rejects the `--scope user-input-boundary` argument (older vibe-sec
+versions, scope flag not yet supported), fall back to a full audit invocation
+(no scope argument). Capture which path was taken into the handoff result file's
+`scope` field (`"user-input-boundary"` or omitted on fallback).
+
+### Step 3 — Capture vibe-sec exit code + findings
+
+Read the Skill invocation's return value. Required captures:
+
+- `exitCode` — vibe-sec's exit code: 0 = clean, 1 = findings present, 2 = tool
+  error.
+- `findings` — vibe-sec's findings array. Shape is owned by vibe-sec; vibe-prompt
+  passes it through without merging into its own audit.json (boundary preserved).
+- `version` — vibe-sec's reported version (semver string).
+
+If the Skill invocation itself throws (Skill error, not tool error), friction-log
+`auto-handoff-vibe-sec-unavailable` (medium) and fall back to banner.
+
+### Step 4 — Write handoff result file
+
+On successful invocation (exit code 0/1/2 all count as success of the
+invocation — the EXIT CODE is what was captured, not whether vibe-sec found
+issues), write the result file to
+`.vibe-prompt/remediate/state/handoff-vibe-sec-<timestamp>.json`. The file
+validates against `handoff-vibe-sec.schema.json` (v0.6 NEW schema). Required
+fields:
+
+```json
+{
+  "runId": "handoff-2026-06-15-1430",
+  "timestamp": "2026-06-15T14:30:00Z",
+  "triggeringFinding": "F12-oneirocriton-2026-06-15",
+  "vibeSecVersion": "0.6.0",
+  "vibeSecFindings": [],
+  "exitCode": 0,
+  "scope": "user-input-boundary"
+}
+```
+
+`scope` is omitted when the fallback-to-full-audit path was taken.
+
+### Step 5 — Update f12HandoffsEmitted on the run result
+
+On the f12 handoff record inside `remediate-result.json`, populate:
+
+- `autoHandoffInvoked: true`
+- `vibeSecResultPath: ".vibe-prompt/remediate/state/handoff-vibe-sec-<timestamp>.json"`
+
+These fields are optional per `remediate-result.schema.json`. When the flag is
+absent (default), they stay absent — preserving v0.5 surface area for any
+v0.5-era consumer.
+
+### Step 6 — Friction-log
+
+- `auto-handoff-vibe-sec-completed` (positive) on successful invocation,
+  regardless of exit code (the handoff itself succeeded; findings or not is a
+  separate question).
+- `auto-handoff-vibe-sec-unavailable` (medium) on Skill-tool unavailability OR
+  invocation throw.
+
+vibe-sec's findings do NOT merge into vibe-prompt's audit.json or
+remediate-result.json. The handoff file is the cross-reference artifact only.
+This preserves the concern boundary (vibe-prompt owns prompt-content findings;
+vibe-sec owns app-level boundary findings) while making the cross-reference
+discoverable via the dashboard.
 
 ## State files
 
