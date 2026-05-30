@@ -65,6 +65,17 @@
           "additionalProperties": {
             "enum": ["user-controlled", "system-injected"]
           }
+        },
+        "f13": {
+          "type": "object",
+          "description": "v0.6+. F13 (Implicit output format) detection configuration.",
+          "properties": {
+            "outputFormatExceptions": {
+              "type": "array",
+              "description": "Prompt IDs (from inventory.json) that intentionally request flexible output. F13 suppresses on these prompts.",
+              "items": { "type": "string" }
+            }
+          }
         }
       }
     },
@@ -87,6 +98,16 @@
           "type": "integer",
           "minimum": 0,
           "default": 30
+        },
+        "autoHandoffVibeSec": {
+          "type": "boolean",
+          "default": false,
+          "description": "v0.6+. When true AND F12 critical fires, :remediate invokes /vibe-sec:audit automatically. Opt-in only; default false preserves v0.5 banner-only behavior."
+        },
+        "applyVoiceFrameFixes": {
+          "type": "boolean",
+          "default": false,
+          "description": "v0.6+. When true, Category B voice-frame rewrites follow normal confidence routing (auto-write if confidence ≥0.90). When false (default), voice-frame rewrites always stage for user review regardless of confidence."
         }
       }
     }
