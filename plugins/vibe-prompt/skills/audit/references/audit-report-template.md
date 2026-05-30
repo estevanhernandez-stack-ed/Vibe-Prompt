@@ -118,8 +118,41 @@ Use these for the per-finding prose sections when F9-F12 fire. Substitute concre
 
 **Evidence.** `{evidence.promptId}` injects `{evidence.userVar}` at the `{evidence.userVarLayer}` composer layer, which is at or before the system-instruction layer (`{evidence.systemInstructionLayer}`). Full composition order: `{evidence.compositionOrder joined with " → "}`. {if confidence-degraded: "Composer-mimic confidence < 0.6 — severity set to high; verify composition order manually."}
 
+{if finding.apiParameterContext is present}
+**API parameter context (v0.6).** User-var layer routes to `{apiParameterContext.userVarApiParameter}`; system-instruction layer routes to `{apiParameterContext.systemInstructionApiParameter}`. Separation verified: `{apiParameterContext.separationVerified}`. {if separationVerified is true: "Note: F12 did NOT fire critical — structurally segregated by API parameter. Finding emitted at degraded severity for transparency."}{if separationVerified is false: "Both layers route to the same API parameter — composition order applies directly."}{if either apiParameter is null: "apiParameter detection had low confidence for one or both layers — fell through to layer-order check; verify by reading the composer file directly."}
+{end if}
+
 **Why it matters.** Anything before the system instruction can override it. This is the highest-risk composition pattern — user content reaches the model before the role is established.
 
 **Recommended fix.** Restructure composition in `{composerFilePath}`: system instruction MUST be in the first layer; user data MUST be in a dedicated `[DATA]` block in the LAST layer. This is a one-file change to the composer; no per-prompt edits required.
 
-**Cross-plugin handoff:** `handoffHint: "vibe-sec:audit"` + `severity: "critical"`.
+**Cross-plugin handoff:** `handoffHint: "vibe-sec:audit"` + `severity: "critical"`. {if `:remediate --auto-handoff-vibe-sec` available: "Run `/vibe-prompt:remediate --auto-handoff-vibe-sec` to invoke vibe-sec:audit on the user-input-boundary scope automatically."}
+
+### F13 — Implicit output format (medium)
+
+**Evidence.** `{evidence.promptId}` at `{evidence.promptLocation}` uses output-cueing patterns (`{evidence.detectedCues joined with ", "}`) without an explicit `[OUTPUT FORMAT:]` declaration or `[OUTPUT_SCHEMA]` block. Detected: {evidence.bracketsBlocksCount} placeholder block(s), {evidence.templatedVarsCount} templated var(s). {if evidence.exceptionConfigChecked: "Checked `audit.f13.outputFormatExceptions` — prompt id not in exception list."}
+
+**Why it matters.** Placeholder blocks and templated vars cue the model that *something* fits there but leave the shape unspecified. Different runs produce prose, JSON, markdown, or hybrids — value-type drift becomes a property of the prompt, not a bug to chase. Schema-tightness suffers; downstream parsing breaks unpredictably.
+
+**Recommended fix.** Add one line near the top of the prompt: `[OUTPUT FORMAT: prose, no JSON unless explicitly requested]` (or `[OUTPUT FORMAT: JSON matching {{schemaName}}]`, or `[OUTPUT_SCHEMA: ...]` if a tighter contract exists). If the flexibility is intentional (creative-discovery, evaluator-judge), add `{evidence.promptId}` to `audit.f13.outputFormatExceptions` in `.vibe-prompt/config.json` instead — the detection respects the opt-out and stops firing.
+
+{if voiceFrameContradictions is present in any Category B finding}
+
+## Voice-frame contradictions appendix (v0.6)
+
+Category B findings can now distinguish direct banned-phrase matches from voice-frame contradictions — phrases that violate the global directive's voice rules without literally matching a banned-phrase list.
+
+{for each finding with voiceFrameContradictions populated}
+
+### {finding.id} — voice-frame contradictions in `{finding.evidence.promptId}`
+
+| Phrase | Location | Ban source (voice rule contradicted) |
+|---|---|---|
+{for each contradiction in finding.voiceFrameContradictions}
+| `{contradiction.phrase}` | {contradiction.location} | {contradiction.banSource} |
+
+**Sub-category:** `voice-frame-rewrite` (confidence ~0.65 — always staged by default). Apply with `/vibe-prompt:remediate --apply-pending {finding.id}` after reviewing the staged diff. Use `/vibe-prompt:remediate --apply-voice-frame-fixes` to opt-in to auto-write voice-frame rewrites at the normal confidence threshold (not recommended for first run on a new app).
+
+{end for}
+
+{end if}
