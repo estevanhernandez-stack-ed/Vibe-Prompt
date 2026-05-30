@@ -8,6 +8,10 @@
       "properties": {
         "findingId": { "type": "string" },
         "findingCategory": { "enum": ["A", "B", "C"] },
+        "subCategory": {
+          "type": "string",
+          "description": "v0.6+. Sub-category distinguishing fix variants. For Category B: `banned-phrase-removal` (v0.5 default) vs `voice-frame-rewrite` (v0.6 voice-frame extension)."
+        },
         "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
         "targetFile": { "type": "string" },
         "targetRange": { "type": "string" },
@@ -27,7 +31,15 @@
         "promptId": { "type": "string" },
         "composerPath": { "type": "string" },
         "banner": { "type": "string" },
-        "severity": { "enum": ["critical", "high"] }
+        "severity": { "enum": ["critical", "high"] },
+        "autoHandoffInvoked": {
+          "type": "boolean",
+          "description": "v0.6+. True when --auto-handoff-vibe-sec flag triggered an actual vibe-sec:audit invocation. False or absent = banner-only (v0.5 default behavior)."
+        },
+        "vibeSecResultPath": {
+          "type": "string",
+          "description": "v0.6+. Path to the handoff-vibe-sec-<timestamp>.json result file when autoHandoffInvoked succeeded."
+        }
       }
     }
   },
