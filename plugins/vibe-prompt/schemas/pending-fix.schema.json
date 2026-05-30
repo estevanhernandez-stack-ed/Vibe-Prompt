@@ -13,7 +13,10 @@
   ],
   "properties": {
     "findingId": { "type": "string" },
-    "findingCategory": { "enum": ["A", "B", "C"] },
+    "findingCategory": {
+      "enum": ["A", "B", "C", "B-voice-frame"],
+      "description": "Top-level fix category. A = mechanical content drop-in. B = contradiction removal. C = sanitization defense. v0.6+ adds sub-category notation: `B-voice-frame` distinguishes voice-frame rewrites from banned-phrase removals (different confidence + routing)."
+    },
     "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
     "targetFile": { "type": "string" },
     "targetRange": { "type": "string" },
@@ -22,6 +25,10 @@
     "postApplyRecommendation": { "type": "string" },
     "versionBumpRequired": { "type": "boolean" },
     "suggestedVersion": { "type": "string" },
-    "stagedAt": { "type": "string", "format": "date-time" }
+    "stagedAt": { "type": "string", "format": "date-time" },
+    "voiceFrameRewriteRationale": {
+      "type": "string",
+      "description": "v0.6+. Explains how the proposed rewrite aligns with the extracted global-directive voice rule. Populated when findingCategory is `B-voice-frame`."
+    }
   }
 }
