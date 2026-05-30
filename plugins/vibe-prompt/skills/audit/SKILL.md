@@ -17,7 +17,7 @@ Apply the F1-F12 rubric (F1-F9 active in v0.4; F10-F12 are Phase 4) to the cache
 ## Workflow
 
 1. **Pre-flight.** Invoke `session-logger` start. Read `.vibe-prompt/state/inventory.json`. If missing, instruct the user to run `/vibe-prompt:scan` first and exit. Validate inventory against `plugins/vibe-prompt/schemas/inventory.schema.json` — if invalid, friction-log `inventory-schema-violation` and abort.
-2. **Apply rubric.** Walk `references/smell-rubric-f1-f13.md` in order F1 → F1b → F2 → F3 → F4 → F5 → F6 → F7 → F9 → F10 → F11 → F12. For each smell, run the detection rule against `inventory.json`. If it fires, build a finding object: `{ id, smell, severity, evidence[], recommendation }`. Use the recommendation template, filling in concrete values from inventory (file paths, IDs, counts). F11 and F12 are only evaluated when F10 has already fired on the same prompt (F10 is prerequisite).
+2. **Apply rubric.** Walk `references/smell-rubric-f1-f13.md` in order F1 → F1b → F2 → F3 → F4 → F5 → F6 → F7 → F9 → F10 → F11 → F12 → F13. For each smell, run the detection rule against `inventory.json`. If it fires, build a finding object: `{ id, smell, severity, evidence[], recommendation }`. Use the recommendation template, filling in concrete values from inventory (file paths, IDs, counts). F11 and F12 are only evaluated when F10 has already fired on the same prompt (F10 is prerequisite). F13 is independent (static analysis on prompt content) and runs after F12.
 3. **F2 semantic pass.** Voice-contradiction detection cannot run from inventory alone — it needs prompt content. Re-read each voice-bearing prompt's content from the target source. Compare global directive (if present in registry as a `*directive` / `*persona` entry) against each task prompt. Surface contradictions with specific file:line citations on BOTH the rule and the violation.
 4. **F6 known-model lookup.** Compare each `modelIdentifiers[*].value` against the bundled known-models list (in `references/smell-rubric-f1-f13.md` §F6). If unrecognized, the suspect-model variant of F6 fires with elevated severity language and a "verify what's actually served" recommendation.
 4b. **F9 date-grounding check.** For each prompt in inventory (registry entries + inline prompts):
@@ -71,6 +71,21 @@ Apply the F1-F12 rubric (F1-F9 active in v0.4; F10-F12 are Phase 4) to the cache
      - composer.json `globalConfidence` < 0.6
      - composer.json is absent
      - either layer's `apiParameter` is `null` (unknown destination — v0.6 fallback path)
+
+4f. **F13 implicit output format detection (v0.6, static — no LLM).** For each prompt in inventory (registry entries + inline prompts):
+   - **Read F13 exception list:** load `audit.f13.outputFormatExceptions` (string array) from config. If the prompt's id appears in this array, **skip F13 for that prompt** (user has acknowledged intentional flexible output).
+   - **Step A — Structural-cue match.** Scan prompt content for at least ONE of:
+     - `[BRACKETS]` blocks — regex `\[[A-Z_]+\]` (one or more uppercase + underscore tokens inside square brackets). Match → cue label `"BRACKETS-blocks"`.
+     - `{{var}}` templated sections — count occurrences of `{{...}}` in the prompt content; match when count > 2 (more than 2 occurrences in the same prompt). Match → cue label `"templated-vars-3x"`.
+     - JSON-like data sections — regex matching JSON-shape: either `^\s*\{[^}]*\}\s*$` (a `{...}` block on its own line) OR `: "[^"]+"` repeated 3+ times in the prompt content. Match → cue label `"json-shaped-data"`.
+   - **Step B — Output-format declaration absence.** Scan prompt content for ANY of (case-insensitive where noted):
+     - `[OUTPUT FORMAT:` (case-insensitive)
+     - `[OUTPUT_SCHEMA]` block marker
+     - `Respond in JSON` / `Return JSON` / `JSON output` (explicit structured-output declarations)
+     - `prose only` / `no JSON` / `narrative response` (explicit prose declarations)
+     - `[OUTPUT FORMAT: flexible]` (explicit flexible-output suppression)
+   - **Fire F13 when:** Step A matched AND Step B found NONE of the declarations (i.e., absence is total). Build finding `{ id: "F13", severity: "medium", evidence: { promptId, promptLocation, detectedCues: [<cue labels>], missingDeclarations: [<list of declarations looked for but not found>] }, recommendation: <template from rubric §F13> }`.
+   - **F13 is independent of F10/F11/F12** — runs on every prompt regardless of user-var presence. Its concern is output-shape ambiguity, not injection surface.
 
 5. **Compose summary.** Count findings by severity → `summary.byCategory`. Total → `summary.totalFindings`.
 6. **Compute per-prompt scores.** Per `references/scoring-dimensions.md` and the Score impact sections in `references/smell-rubric-f1-f13.md`:
