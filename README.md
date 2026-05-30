@@ -12,14 +12,30 @@ Vibe-Prompt is the prompt-audit and behavioral-testing layer for vibe-coded apps
 ## What it does
 
 - `/vibe-prompt:scan` — inventory pass. Finds every prompt site in your app (registry + inline). Detects template-literal `${var}`, string-concat, and JSX-attr interpolations alongside `{{handlebars}}`. Classifies each templated var by origin (user-controlled vs system-injected) so injection grading targets the right vars.
-- `/vibe-prompt:audit` — structural pass. Flags 12 smell categories (F1–F12) with file:line evidence. Produces per-prompt scores across 5 dimensions (schema tightness, persona consistency, instruction clarity, token efficiency, injection resistance). F9 checks date-grounding; F10-F12 grade prompt-injection vulnerability and now filter out system-injected vars before firing.
+- `/vibe-prompt:audit` — structural pass. Flags 13 smell categories (F1–F13) with file:line evidence. Produces per-prompt scores across 5 dimensions (schema tightness, persona consistency, instruction clarity, token efficiency, injection resistance). F9 checks date-grounding; F10-F12 grade prompt-injection vulnerability and filter out system-injected vars before firing; F12 detection is now API-parameter-aware (deterministic when composer.json layers have `apiParameter` populated); F13 flags prompts that use structural cues without declaring their output format.
 - `/vibe-prompt:eval` — behavioral pass. Runs prompts against the prod model + an in-session Claude baseline. Surfaces semantic drift via mechanical comparator (including value-type-drift check) + LLM-judge with SWRS calibration, Long CoT reasoning, Swap-and-Discard position-bias mitigation, and verbosity penalty. Per-dimension scores on eval output. Cost-gated; always confirms before spending. Accepts `--inject-attacks` flag to run 6 canonical injection patterns against each prompt with a user-input var — judges whether the model honored the attack or held its role. Handoff to `/vibe-sec:audit` recommended when attacks succeed.
 - `/vibe-prompt:grade` — synthesis pass. Reads audit + latest eval scores and computes per-prompt + app composite grades via weighted average. Tracks each prompt's best-ever score as the monotonic baseline — improvements advance it, regressions flag without resetting. Surfaces composite trends and flagged regressions in one dashboard.
 - `/vibe-prompt:iterate` — discovery pass. Reads your inventory + audit findings + app domain (detected from CLAUDE.md → vibe-tool artifacts → package metadata → brief interview), dispatches one creative-divergent LLM call (~$0.02), and returns 3-5 prompts your app could add — each with a handoff hint to `/vibe-cartographer:scope` or `/vibe-iterate:feature-add`.
-- `/vibe-prompt:remediate` — fix pass. Closes the audit → fix loop. Reads latest audit + composer.json, groups findings by fix category (A composer-level additions, B contradiction removal, C defense addition), scores each proposed diff on a 5-dimension confidence rubric, and routes: auto-write (≥0.90 with backup), stage to `.vibe-prompt/remediate/pending/` (0.70-0.89), inline-only (<0.70). F12 critical findings emit a cross-plugin handoff banner to `/vibe-sec:audit` rather than auto-proposing — composition-order is upstream of the prompt.
+- `/vibe-prompt:remediate` — fix pass. Closes the audit → fix loop. Reads latest audit + composer.json, groups findings by fix category (A composer-level additions, B contradiction removal split into banned-phrase-removal + voice-frame-rewrite sub-categories, C defense addition), scores each proposed diff on a 5-dimension confidence rubric, and routes: auto-write (≥0.90 with backup), stage to `.vibe-prompt/remediate/pending/` (0.70-0.89), inline-only (<0.70). Voice-frame rewrites stage by default (voice-drift risk); `--apply-voice-frame-fixes` opts in to normal routing. F12 critical findings emit a cross-plugin handoff banner to `/vibe-sec:audit` rather than auto-proposing — composition-order is upstream of the prompt. Opt-in `--auto-handoff-vibe-sec` invokes `/vibe-sec:audit` automatically when F12 critical fires (falls back to banner if vibe-sec isn't installed).
 - `/vibe-prompt:radar` — model-news pass. Checks for new model releases, deprecations, and pricing changes from your vendors. Zero LLM cost; reads vendor changelogs and docs.
 - `/vibe-prompt` (bare) — state-aware router; reads inventory + audit + eval + grade + iterate + radar state plus pending remediation files and recommends the next move.
 - `/vibe-prompt:evolve-prompt` — L3 self-evolution. Reads session + friction logs across all seven commands and proposes improvements to the plugin itself. Never auto-applies.
+
+## What's new in v0.6
+
+Five additive capabilities in the "detection sharpness" theme. No breaking changes to v0.5 surface area.
+
+**F12 API-parameter-aware detection.** v0.5's F12 compared layer order from composer.json — useful, but blind to the difference between content passed in `systemInstruction:` vs `contents[]` (Gemini) or `messages[]` (OpenAI / Anthropic). When user content lives in `contents[]` and system instructions live in `systemInstruction:`, the API enforces structural separation regardless of composition order. v0.6 reads a new `apiParameter` field per composer layer and emits the correct deterministic verdict — F12 only fires critical when user-var and system-instruction layers share the same API parameter. When `apiParameter` is unknown, F12 confidence-degrades per v0.5 fallback. The Celestia3 `dreamText` case (passed in `contents[]`, not `systemInstruction:`) now correctly does NOT fire F12 critical.
+
+**F13 — Implicit output format.** New static finding. Fires when a prompt uses structural cues (`[BRACKETS]` blocks, repeated `{{vars}}`, JSON-shaped data sections) but doesn't declare its output format. The model may emit JSON, code fences, or partial structure when prose was expected, or vice versa. Recommendation template offers two fixes: add `[OUTPUT FORMAT: prose, no JSON or code fences]` for prose output, or add `[OUTPUT_SCHEMA]` block for structured output. Suppressed by explicit `[OUTPUT FORMAT: flexible]` directive or via `audit.f13.outputFormatExceptions` config. Severity medium. Score impact: schema-tightness −2, instruction-clarity −1. Static analysis — no LLM cost.
+
+**Category B voice-frame depth.** v0.5's Category B remediation caught direct banned-phrase matches (e.g., "Fellow Pilgrim") but missed voice-frame language patterns — "quatrain-style narrative", "shattering of the veil", "ancient dust" — that echo a banned persona without using the literal banned phrase. v0.6 extracts voice rules from the global directive (bans + positive guidance) and matches voice-frame phrase clusters (archaic vocabulary, ritualistic framing, capitalized abstract nouns) in task prompts. Emitted as Category B with `subCategory: "voice-frame-rewrite"`, confidence 0.65, ALWAYS staged by default. Opt in to normal confidence routing via `--apply-voice-frame-fixes` flag.
+
+**`:remediate --auto-handoff-vibe-sec` flag.** v0.5 emitted a handoff banner on F12 critical recommending `/vibe-sec:audit` — advisory only. v0.6 adds opt-in auto-invocation: when the flag is set AND F12 critical fires AND vibe-sec is installed, `:remediate` invokes `/vibe-sec:audit --scope user-input-boundary` automatically and writes the result to `.vibe-prompt/remediate/state/handoff-vibe-sec-<timestamp>.json`. Falls back to v0.5 banner-only behavior with friction-log when vibe-sec isn't installed. Cross-plugin handoff orchestration without merging concerns — vibe-sec findings stay in vibe-sec; vibe-prompt just orchestrates.
+
+**composer.schema `global-directive` enum.** Cosmetic fix. v0.5's first-run-setup emitted `directive-field` for layers that should be `global-directive`. v0.6 extends the layer-type enum to include `global-directive` and updates first-run-setup detection. `directive-field` remains a deprecated alias — old composer.json files continue to validate.
+
+**7 new friction triggers** for the v0.6 detection gaps (apiParameter low confidence, auto-handoff outcomes, F13 false positives, voice-frame confidence and rejections).
 
 ## What's new in v0.5
 
@@ -94,7 +110,7 @@ Get a free API key at [Google AI Studio](https://aistudio.google.com/app/apikey)
 
 Keys are read from the environment only and never written to disk.
 
-## Smell rubric (v0.4, F1–F12)
+## Smell rubric (v0.6, F1–F13)
 
 | ID | Name | Severity | Static / Eval | Score impact |
 |---|---|---|---|---|
@@ -110,8 +126,9 @@ Keys are read from the environment only and never written to disk.
 | F10 | User-input var without sanitization marker | high | static | injectionRes −4, clarity −1 |
 | F11 | Defense-in-depth scarcity | medium | static | injectionRes −2 |
 | F12 | User-var at or before system instruction | critical | static | injectionRes −6, persona −2 |
+| F13 | Implicit output format (structural cues + no declaration) | medium | static | schema −2, clarity −1 |
 
-F10-F12 also carry `handoffHint: "vibe-sec:audit"` for cross-plugin app-level review.
+F10-F12 also carry `handoffHint: "vibe-sec:audit"` for cross-plugin app-level review. F12 fires deterministically only when user-var and system-instruction layers share the same API parameter — when `apiParameter` is unknown, severity degrades to high per v0.5 fallback.
 
 ## Stack coverage (v0.5)
 
