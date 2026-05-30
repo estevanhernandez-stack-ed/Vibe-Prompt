@@ -6,7 +6,7 @@ that the SKILL contains the necessary detection rule prose so the agent followin
 the SKILL can correctly perform F9 detection.
 
 Asserts:
-  1. audit/SKILL.md references smell-rubric-f1-f12.md (cross-ref update done in Task 6)
+  1. audit/SKILL.md references smell-rubric-f1-f13.md (cross-ref update done in Task 6)
   2. SKILL contains F9 detection step in the workflow
   3. SKILL includes the date-keyword regex pattern (or references the rubric for it)
   4. SKILL includes the composition-stack temporal anchor check logic
@@ -23,7 +23,7 @@ SKILLS_DIR = (
     / "skills"
 )
 AUDIT_SKILL = SKILLS_DIR / "audit" / "SKILL.md"
-AUDIT_RUBRIC = SKILLS_DIR / "audit" / "references" / "smell-rubric-f1-f12.md"
+AUDIT_RUBRIC = SKILLS_DIR / "audit" / "references" / "smell-rubric-f1-f13.md"
 
 
 class TestF9DetectionInAuditSkill(unittest.TestCase):
@@ -38,9 +38,9 @@ class TestF9DetectionInAuditSkill(unittest.TestCase):
 
     def test_skill_references_f1_f12_rubric(self):
         self.assertIn(
-            "smell-rubric-f1-f12.md",
+            "smell-rubric-f1-f13.md",
             self.skill_content,
-            "audit/SKILL.md must reference smell-rubric-f1-f12.md (not the old f1-f7)"
+            "audit/SKILL.md must reference smell-rubric-f1-f13.md (not the old f1-f7)"
         )
 
     def test_skill_does_not_reference_old_rubric(self):

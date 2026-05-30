@@ -240,9 +240,55 @@ The detection is best-effort and may require the agent to read the actual conten
 
 ---
 
+## F13 — Implicit output format (the JSON-markings gap)
+
+**Severity (default):** medium
+**Score impact (v0.6):** schema-tightness −2, instruction-clarity −1
+
+**Why it's there:** prompts that use structural cues — `[BRACKETS]` blocks, repeated `{{var}}` templating, JSON-shaped data sections — without an explicit output-format declaration leave the model to infer whether prose or structured output is wanted. The model often emits JSON, code fences, or partial structure when prose was expected (or vice versa). This finding closes the v0.3-era manual gap where synastry_report's JSON-marking leak showed only as a low schema-tightness score, never as an explicit fire-able finding.
+
+**Detection rule (static, no LLM):**
+
+1. **Step A — Structural-cue match.** Prompt content matches at least ONE of:
+   - `[BRACKETS]` blocks — regex `\[[A-Z_]+\]` (one or more uppercase/underscore tokens inside square brackets)
+   - `{{var}}` templated sections appearing more than 2× in the same prompt
+   - JSON-like data sections — regex matching `^\s*\{[^}]*\}\s*$` block fences OR `: "[^"]+"` repeated 3+ times in the prompt
+
+2. **Step B — Output-format declaration absence.** Prompt content does NOT contain any of:
+   - `[OUTPUT FORMAT:` (case-insensitive)
+   - `[OUTPUT_SCHEMA]` block
+   - `Respond in JSON` / `Return JSON` / `JSON output` (explicit structured-output declarations)
+   - `prose only` / `no JSON` / `narrative response` (explicit prose declarations)
+   - `[OUTPUT FORMAT: flexible]` (suppresses F13 — intentional flexible output)
+
+3. **Fire when:** step A matches AND step B finds nothing.
+
+4. **Exception list:** read `audit.f13.outputFormatExceptions` from config; if the prompt's id appears in the array, F13 is suppressed for that prompt (user-acknowledged intentional flexible output).
+
+**Evidence:**
+- `evidence.promptId` — the affected prompt id
+- `evidence.promptLocation` — file + line
+- `evidence.detectedCues` — array of structural cues found (e.g., `["BRACKETS-blocks", "templated-vars-3x", "json-shaped-data"]`)
+- `evidence.missingDeclarations` — array of declarations looked for but not present (e.g., `["[OUTPUT FORMAT:", "[OUTPUT_SCHEMA]", "Respond in JSON", "prose only"]`)
+
+**Recommendation template:**
+> The `{promptId}` prompt uses structural cues (`{detectedCuesList}`) that the model may interpret as a request for structured (JSON) output, but the prompt does not declare its expected output format. The model may emit JSON, code fences, or partial structure when prose was expected, or vice versa. Two fixes (pick one):
+>
+> 1. **If prose output expected:** add `[OUTPUT FORMAT: prose, no JSON or code fences. Respond in conversational narrative.]` directive near the persona statement.
+> 2. **If structured output expected:** add an `[OUTPUT_SCHEMA]` block with the JSON schema declaration (use the existing schema if available; declare a new one otherwise).
+
+**Edge cases:**
+- A prompt that intentionally requests flexible output ("respond as you see fit") would fire false-positively. Mitigation: add `[OUTPUT FORMAT: flexible]` directive — suppresses F13.
+- A prompt with `[OUTPUT_SCHEMA]` that DOES declare structured output gets F13 suppressed even if it has other structural cues.
+- Per-prompt suppression via `audit.f13.outputFormatExceptions` config array.
+
+**Cross-plugin handoff:** none. F13 is plugin-internal — :remediate handles fix routing.
+
+---
+
 ## Per-prompt audit composite
 
-After all F1–F12 detections, compute the per-prompt audit composite:
+After all F1–F13 detections, compute the per-prompt audit composite:
 
 1. **Start each dimension at 10** (perfect score — no findings = no deductions).
 2. **For each fired finding, apply its Score impact deduction** to the affected dimensions.

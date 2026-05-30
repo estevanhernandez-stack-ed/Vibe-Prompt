@@ -20,7 +20,7 @@ import unittest
 
 SKILLS_DIR = pathlib.Path(__file__).parent.parent.parent / "skills"
 AUDIT_SKILL = SKILLS_DIR / "audit" / "SKILL.md"
-AUDIT_RUBRIC = SKILLS_DIR / "audit" / "references" / "smell-rubric-f1-f12.md"
+AUDIT_RUBRIC = SKILLS_DIR / "audit" / "references" / "smell-rubric-f1-f13.md"
 
 
 class TestF10DetectionInAuditSkill(unittest.TestCase):
@@ -194,7 +194,7 @@ class TestF10NoFireWithSanitization(unittest.TestCase):
     def setUp(self):
         self.rubric = (
             pathlib.Path(__file__).parent.parent.parent
-            / "skills" / "audit" / "references" / "smell-rubric-f1-f12.md"
+            / "skills" / "audit" / "references" / "smell-rubric-f1-f13.md"
         ).read_text(encoding="utf-8")
 
     def test_rubric_fire_condition_is_and_not_or(self):

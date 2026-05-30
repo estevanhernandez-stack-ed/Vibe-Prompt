@@ -2,7 +2,7 @@
 Task 6 — TDD tests for audit rubric rename + F9 addition.
 
 Asserts:
-  1. File smell-rubric-f1-f12.md exists
+  1. File smell-rubric-f1-f13.md exists
   2. File smell-rubric-f1-f7.md does NOT exist
   3. File contains section ## F9 — Date-handling prompt without temporal grounding
   4. File contains section ## F10 — Prompt accepts user-controlled input without sanitization marker
@@ -19,7 +19,7 @@ REFERENCES_DIR = (
 )
 
 OLD_RUBRIC = REFERENCES_DIR / "smell-rubric-f1-f7.md"
-NEW_RUBRIC = REFERENCES_DIR / "smell-rubric-f1-f12.md"
+NEW_RUBRIC = REFERENCES_DIR / "smell-rubric-f1-f13.md"
 
 
 class TestAuditRubricRename(unittest.TestCase):
@@ -44,7 +44,7 @@ class TestAuditRubricRename(unittest.TestCase):
         self.assertIn(
             "## F9 — Date-handling prompt without temporal grounding",
             content,
-            "F9 section missing from smell-rubric-f1-f12.md"
+            "F9 section missing from smell-rubric-f1-f13.md"
         )
 
     def test_f10_section_present(self):
@@ -52,7 +52,7 @@ class TestAuditRubricRename(unittest.TestCase):
         self.assertIn(
             "## F10 — Prompt accepts user-controlled input without sanitization marker",
             content,
-            "F10 section missing from smell-rubric-f1-f12.md"
+            "F10 section missing from smell-rubric-f1-f13.md"
         )
 
     def test_f11_section_present(self):
@@ -60,7 +60,7 @@ class TestAuditRubricRename(unittest.TestCase):
         self.assertIn(
             "## F11 — Prompt has insufficient defense-in-depth directives",
             content,
-            "F11 section missing from smell-rubric-f1-f12.md"
+            "F11 section missing from smell-rubric-f1-f13.md"
         )
 
     def test_f12_section_present(self):
@@ -68,7 +68,7 @@ class TestAuditRubricRename(unittest.TestCase):
         self.assertIn(
             "## F12 — User-controlled var appears at or before system instruction",
             content,
-            "F12 section missing from smell-rubric-f1-f12.md"
+            "F12 section missing from smell-rubric-f1-f13.md"
         )
 
     def test_f9_has_severity_high(self):

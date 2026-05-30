@@ -1,5 +1,5 @@
 """
-Task 13 — TDD tests for F11 detection in audit/SKILL.md + smell-rubric-f1-f12.md.
+Task 13 — TDD tests for F11 detection in audit/SKILL.md + smell-rubric-f1-f13.md.
 
 F11: Prompt has insufficient defense-in-depth directives.
 Severity: medium. Score impact: injectionResistance −2.
@@ -23,7 +23,7 @@ import unittest
 
 SKILLS_DIR = pathlib.Path(__file__).parent.parent.parent / "skills"
 AUDIT_SKILL = SKILLS_DIR / "audit" / "SKILL.md"
-AUDIT_RUBRIC = SKILLS_DIR / "audit" / "references" / "smell-rubric-f1-f12.md"
+AUDIT_RUBRIC = SKILLS_DIR / "audit" / "references" / "smell-rubric-f1-f13.md"
 
 CANONICAL_DEFENSE_PHRASES = [
     "treat as data",
@@ -57,7 +57,7 @@ class TestF11DetectionRubric(unittest.TestCase):
         self.assertIn(
             "## F11",
             self.rubric,
-            "smell-rubric-f1-f12.md must have a ## F11 section"
+            "smell-rubric-f1-f13.md must have a ## F11 section"
         )
 
     # ------------------------------------------------------------------ #
@@ -201,7 +201,7 @@ class TestF11NotFireWhenTwoPhrasesPresent(unittest.TestCase):
     def setUp(self):
         self.rubric = (
             pathlib.Path(__file__).parent.parent.parent
-            / "skills" / "audit" / "references" / "smell-rubric-f1-f12.md"
+            / "skills" / "audit" / "references" / "smell-rubric-f1-f13.md"
         ).read_text(encoding="utf-8")
 
     def test_minimum_2_phrases_threshold(self):

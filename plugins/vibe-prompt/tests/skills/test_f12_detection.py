@@ -1,5 +1,5 @@
 """
-Task 14 — TDD tests for F12 detection in audit/SKILL.md + smell-rubric-f1-f12.md.
+Task 14 — TDD tests for F12 detection in audit/SKILL.md + smell-rubric-f1-f13.md.
 
 F12: User-controlled var appears at or before system instruction in composition order.
 Severity: critical (degrades to high when composer-mimic confidence < 0.6).
@@ -25,7 +25,7 @@ import unittest
 
 SKILLS_DIR = pathlib.Path(__file__).parent.parent.parent / "skills"
 AUDIT_SKILL = SKILLS_DIR / "audit" / "SKILL.md"
-AUDIT_RUBRIC = SKILLS_DIR / "audit" / "references" / "smell-rubric-f1-f12.md"
+AUDIT_RUBRIC = SKILLS_DIR / "audit" / "references" / "smell-rubric-f1-f13.md"
 
 
 class TestF12DetectionRubric(unittest.TestCase):
@@ -44,7 +44,7 @@ class TestF12DetectionRubric(unittest.TestCase):
         self.assertIn(
             "## F12",
             self.rubric,
-            "smell-rubric-f1-f12.md must have a ## F12 section"
+            "smell-rubric-f1-f13.md must have a ## F12 section"
         )
 
     # ------------------------------------------------------------------ #
@@ -245,7 +245,7 @@ class TestF12NotFireWhenUserVarAfterSystem(unittest.TestCase):
     def setUp(self):
         self.rubric = (
             pathlib.Path(__file__).parent.parent.parent
-            / "skills" / "audit" / "references" / "smell-rubric-f1-f12.md"
+            / "skills" / "audit" / "references" / "smell-rubric-f1-f13.md"
         ).read_text(encoding="utf-8")
         self.skill = (
             pathlib.Path(__file__).parent.parent.parent

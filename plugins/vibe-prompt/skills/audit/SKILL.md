@@ -5,7 +5,7 @@ description: This skill should be used when the user says "/vibe-prompt:audit", 
 
 # /vibe-prompt:audit
 
-Load `vibe-prompt:guide` first. Then load `references/smell-rubric-f1-f12.md`, `references/audit-report-template.md`, `references/scoring-dimensions.md`, and `vibe-prompt:guide/references/calibration-patterns.md`.
+Load `vibe-prompt:guide` first. Then load `references/smell-rubric-f1-f13.md`, `references/audit-report-template.md`, `references/scoring-dimensions.md`, and `vibe-prompt:guide/references/calibration-patterns.md`.
 
 Apply the F1-F12 rubric (F1-F9 active in v0.4; F10-F12 are Phase 4) to the cached inventory. Emit machine-readable findings + human-readable dated report.
 
@@ -17,9 +17,9 @@ Apply the F1-F12 rubric (F1-F9 active in v0.4; F10-F12 are Phase 4) to the cache
 ## Workflow
 
 1. **Pre-flight.** Invoke `session-logger` start. Read `.vibe-prompt/state/inventory.json`. If missing, instruct the user to run `/vibe-prompt:scan` first and exit. Validate inventory against `plugins/vibe-prompt/schemas/inventory.schema.json` — if invalid, friction-log `inventory-schema-violation` and abort.
-2. **Apply rubric.** Walk `references/smell-rubric-f1-f12.md` in order F1 → F1b → F2 → F3 → F4 → F5 → F6 → F7 → F9 → F10 → F11 → F12. For each smell, run the detection rule against `inventory.json`. If it fires, build a finding object: `{ id, smell, severity, evidence[], recommendation }`. Use the recommendation template, filling in concrete values from inventory (file paths, IDs, counts). F11 and F12 are only evaluated when F10 has already fired on the same prompt (F10 is prerequisite).
+2. **Apply rubric.** Walk `references/smell-rubric-f1-f13.md` in order F1 → F1b → F2 → F3 → F4 → F5 → F6 → F7 → F9 → F10 → F11 → F12. For each smell, run the detection rule against `inventory.json`. If it fires, build a finding object: `{ id, smell, severity, evidence[], recommendation }`. Use the recommendation template, filling in concrete values from inventory (file paths, IDs, counts). F11 and F12 are only evaluated when F10 has already fired on the same prompt (F10 is prerequisite).
 3. **F2 semantic pass.** Voice-contradiction detection cannot run from inventory alone — it needs prompt content. Re-read each voice-bearing prompt's content from the target source. Compare global directive (if present in registry as a `*directive` / `*persona` entry) against each task prompt. Surface contradictions with specific file:line citations on BOTH the rule and the violation.
-4. **F6 known-model lookup.** Compare each `modelIdentifiers[*].value` against the bundled known-models list (in `references/smell-rubric-f1-f12.md` §F6). If unrecognized, the suspect-model variant of F6 fires with elevated severity language and a "verify what's actually served" recommendation.
+4. **F6 known-model lookup.** Compare each `modelIdentifiers[*].value` against the bundled known-models list (in `references/smell-rubric-f1-f13.md` §F6). If unrecognized, the suspect-model variant of F6 fires with elevated severity language and a "verify what's actually served" recommendation.
 4b. **F9 date-grounding check.** For each prompt in inventory (registry entries + inline prompts):
    - **Step A — Date-intent match:** scan the prompt's content + any `templatedVars` entries. Check for:
      - Keyword regex: `\b(?:birth ?date|birthday|birth ?day|transit|natal|nativity|current|today|now|year|month|age|when)\b` (case-insensitive)
@@ -73,7 +73,7 @@ Apply the F1-F12 rubric (F1-F9 active in v0.4; F10-F12 are Phase 4) to the cache
      - either layer's `apiParameter` is `null` (unknown destination — v0.6 fallback path)
 
 5. **Compose summary.** Count findings by severity → `summary.byCategory`. Total → `summary.totalFindings`.
-6. **Compute per-prompt scores.** Per `references/scoring-dimensions.md` and the Score impact sections in `references/smell-rubric-f1-f12.md`:
+6. **Compute per-prompt scores.** Per `references/scoring-dimensions.md` and the Score impact sections in `references/smell-rubric-f1-f13.md`:
    - For each prompt in inventory, start each dimension (schemaTightness, personaConsistency, instructionClarity, tokenEfficiency, injectionResistance) at 10.
    - For each fired finding that targets this prompt, apply its Score impact deductions to the affected dimensions.
    - Floor each dimension at 1 (no dimension goes below 1).
