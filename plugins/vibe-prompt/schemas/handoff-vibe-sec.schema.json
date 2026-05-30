@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "vibe-prompt/handoff-vibe-sec",
+  "description": "v0.6+. Records a vibe-sec:audit invocation triggered by /vibe-prompt:remediate --auto-handoff-vibe-sec when F12 critical fires. Written to .vibe-prompt/remediate/state/handoff-vibe-sec-<timestamp>.json. vibe-sec findings do NOT merge into vibe-prompt's audit.json — this file is the cross-reference artifact only.",
+  "type": "object",
+  "required": [
+    "runId",
+    "timestamp",
+    "triggeringFinding",
+    "vibeSecVersion",
+    "vibeSecFindings",
+    "exitCode"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "description": "Handoff invocation ID, format: handoff-YYYY-MM-DD-HHMM."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "triggeringFinding": {
+      "type": "string",
+      "description": "Finding ID that triggered the handoff (e.g. F12-oneirocriton-2026-06-15)."
+    },
+    "vibeSecVersion": {
+      "type": "string",
+      "description": "Version of vibe-sec invoked (semver string)."
+    },
+    "vibeSecFindings": {
+      "type": "array",
+      "description": "Findings returned by vibe-sec. Shape determined by vibe-sec; vibe-prompt does not constrain item structure."
+    },
+    "exitCode": {
+      "type": "integer",
+      "description": "Exit code from vibe-sec invocation. 0 = clean; 1 = findings present; 2 = tool error."
+    },
+    "scope": {
+      "type": "string",
+      "description": "Scope passed to vibe-sec (e.g. user-input-boundary). Optional — if vibe-sec did not accept the scope flag, falls back to full audit and scope is omitted."
+    }
+  }
+}
