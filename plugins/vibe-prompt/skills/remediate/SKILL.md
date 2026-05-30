@@ -7,7 +7,8 @@ description: This skill should be used when the user says "/vibe-prompt:remediat
 
 Load `vibe-prompt:guide` first. Then load `references/fix-categories.md`,
 `references/confidence-rubric.md`, `references/delimiter-naming.md`,
-`references/diff-patch-helpers.md`, and `references/rollback-workflow.md`.
+`references/diff-patch-helpers.md`, `references/rollback-workflow.md`, and
+(v0.6+) `references/voice-frame-detection.md`.
 
 This is the sixth step-command in the vibe-prompt pipeline — it closes the gap between
 "the audit told us what's wrong" and "the prompts are actually fixed." Confidence-routed
@@ -60,6 +61,33 @@ Skip findings already flagged `originFilteredOut: true` in the audit (system-inj
 vars; not user-controlled — no Category C target).
 
 ### 3. Generate proposed diff + score confidence
+
+**v0.6 voice-rule extraction (Category B prerequisite).** Before generating
+Category B diffs, run a voice-rule extraction pass against the global-directive
+layer (per `composer.json.layers[]` where `type === "global-directive"`). The
+extraction reads the directive content and returns:
+
+- `bans` — explicit bans pulled by regex (`(?i)never (use|say|call|address)`,
+  `(?i)not (a|the) X`, `(?i)avoid X`, `(?i)don'?t (use|say|address)`) plus
+  implied bans projected by persona-affirmation patterns
+- `positive guidance` — persona affirmations (`(?i)plain (modern|simple) language`,
+  `(?i)contractions`, `(?i)warm.{1,30}friend`, `(?i)second person`,
+  `(?i)conversational`, `(?i)direct`) — each affirmation projects an implied ban
+  for the contradicting voice frame (e.g. plain modern language bans archaic)
+- `globalConfidence` — mean of per-rule confidences (0-1)
+
+Each extracted rule carries a `confidence` value derived from the matching pattern's
+table in `references/voice-frame-detection.md` § "Voice-rule extraction from
+global directive". Confidence per rule informs which voice-frame contradictions
+are actionable in step 3b.
+
+When `globalConfidence < 0.6`, friction-log
+`category-b-voice-frame-detection-confidence-low` (medium) and SKIP the
+voice-frame sub-category for this run — too noisy to act on. Banned-phrase
+Category B (v0.5 behavior) continues unaffected.
+
+When the global-directive layer is absent or empty, voice-rule extraction
+returns zero rules; the voice-frame sub-category silently skips.
 
 For each grouped finding:
 
