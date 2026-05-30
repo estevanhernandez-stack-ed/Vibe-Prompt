@@ -1,5 +1,58 @@
 # Changelog
 
+## [0.6.0] — 2026-05-29
+
+Five additive capabilities organized around the "detection sharpness" theme. No breaking changes to v0.5 commands or surface area.
+
+### Added
+
+- **F12 API-parameter-aware detection.** F12's layer-order comparison now reads a new `apiParameter` field per composer layer and emits a deterministic verdict — F12 only fires critical when user-var and system-instruction layers share the same API parameter (e.g., both interpolated into `systemInstruction:`). When the API surface segregates them (user content in `contents[]` or `messages[]`, system instructions in `systemInstruction:`), F12 does NOT fire — composition order is structurally safe. When `apiParameter` is `null` (unknown), F12 confidence-degrades to severity `high` per v0.5 fallback. The audit finding records the analysis in a new `apiParameterContext` field describing the separation reasoning.
+
+- **F13 — Implicit output format.** New static finding. Detection rule: prompt content contains at least one structural cue (`[BRACKETS]` blocks regex `\[[A-Z_]+\]`, 3+ `{{templated}}` vars in the same prompt, JSON-like data sections) AND the prompt content does NOT contain any output-format declaration (`[OUTPUT FORMAT:`, `[OUTPUT_SCHEMA]`, `Respond in JSON`, `prose only`, `narrative response`, etc.). Severity: medium. Score impact: `schema-tightness −2`, `instruction-clarity −1`. No LLM call. Suppressed by explicit `[OUTPUT FORMAT: flexible]` directive or by adding the prompt id to `audit.f13.outputFormatExceptions` config. Evidence includes `detectedCues[]` and `missingDeclarations[]` arrays.
+
+- **Category B voice-frame depth.** `:remediate`'s Category B contradiction-removal now detects voice-frame phrase clusters in task prompts that contradict the global directive's voice rules — beyond direct banned-phrase matches. Voice-rule extraction parses the global directive for both explicit bans (`(?i)never (use|say|call|address)`, `(?i)not (a|the) X`, `(?i)avoid X`) and persona affirmations that imply bans (`plain modern language` → bans archaic; `contractions` → bans formal; `warm friend` → bans formal-priest). Voice-frame phrase patterns match archaic vocabulary, ritualistic framing, and capitalized abstract nouns. Emitted with `subCategory: "voice-frame-rewrite"`, confidence 0.65, ALWAYS staged by default. The audit finding records voice-frame contradictions in a new `voiceFrameContradictions[]` array.
+
+- **`/vibe-prompt:remediate --auto-handoff-vibe-sec` flag.** Opt-in: when set AND F12 critical fires AND vibe-sec is installed, `:remediate` invokes `/vibe-sec:audit --scope user-input-boundary` and captures the result to `.vibe-prompt/remediate/state/handoff-vibe-sec-<timestamp>.json`. Falls back to v0.5 banner-only behavior with friction-log `auto-handoff-vibe-sec-unavailable` when vibe-sec isn't installed. Cross-plugin coordination without merging concerns — vibe-sec findings stay separate; vibe-prompt orchestrates only.
+
+- **`/vibe-prompt:remediate --apply-voice-frame-fixes` flag.** Opt-in: when set, voice-frame Category B diffs follow normal routing (auto-write at ≥0.90, stage at 0.70-0.89). Without the flag, voice-frame diffs ALWAYS stage regardless of confidence — voice-drift risk requires human review by default.
+
+- **composer.schema `global-directive` enum.** Layer type enum extends to include `global-directive`. `:first-run-setup` detection now emits `global-directive` for persona/master-directive layers (was `directive-field` in v0.5). `directive-field` remains a deprecated alias and continues to validate against the schema — old composer.json files don't break. Schema emits a warning when `directive-field` is used.
+
+- **Router state branch: `review-vibe-sec-handoff-results`.** Bare `/vibe-prompt` router detects `.vibe-prompt/remediate/state/handoff-vibe-sec-*.json` files and routes to the new branch with a summary of vibe-sec findings + next-action menu.
+
+- **7 new friction triggers:** `f12-api-parameter-detection-low-confidence` (medium), `auto-handoff-vibe-sec-completed` (positive), `auto-handoff-vibe-sec-unavailable` (medium), `f13-fired-but-prompt-intentionally-flexible-output` (low), `f13-recommended-fix-applied-and-eval-confirms-output-stability` (positive), `category-b-voice-frame-detection-confidence-low` (medium), `category-b-voice-frame-rewrite-rejected` (low). Each maps to a concrete handler template in `evolve-prompt/SKILL.md`.
+
+### Changed
+
+- `:audit` F12 detection checks `apiParameter` first; falls through to v0.5 layer-order check only when `apiParameter` is shared or unknown.
+- `:audit` produces F1-F13 (was F1-F12 in v0.5).
+- `:remediate` Category B splits into two sub-categories: `banned-phrase-removal` (confidence 0.75, normal routing) and `voice-frame-rewrite` (confidence 0.65, always staged unless `--apply-voice-frame-fixes`).
+- `:first-run-setup` composer detection traces each layer's destination API parameter and emits `apiParameter` + `apiParameterConfidence` per layer.
+- `:first-run-setup` emits `global-directive` for persona/master-directive layers instead of `directive-field`.
+- `audit/references/smell-rubric-f1-f12.md` renamed to `smell-rubric-f1-f13.md` with F13 section added.
+- Guide SKILL adds "Detection sharpness (v0.6)" section.
+- Audit report template renders F13 findings, `apiParameterContext` on F12 findings, and `voiceFrameContradictions[]` on voice-frame Category B findings.
+
+### Schema changes
+
+- **NEW: `handoff-vibe-sec.schema.json`** — records `runId`, `timestamp`, `triggeringFinding`, `vibeSecVersion`, `vibeSecFindings[]`, `exitCode`, `scope`.
+- `composer.schema.json` — `layers[].apiParameter` enum (`systemInstruction` | `contents` | `messages` | `instructions` | `prompt` | `null`), `layers[].apiParameterConfidence` number 0-1, layer `type` enum extended with `global-directive` (`directive-field` deprecated but still validates).
+- `audit.schema.json` — `findings[].id` enum extended to F13; `findings[].apiParameterContext` optional object (`{userVarApiParameter, systemInstructionApiParameter, separationVerified}`); `findings[].voiceFrameContradictions[]` optional array (`{phrase, location, banSource}`).
+- `remediate-result.schema.json` — `appliedDiffs[].subCategory` optional string; `f12HandoffsEmitted[].autoHandoffInvoked` optional boolean; `f12HandoffsEmitted[].vibeSecResultPath` optional string.
+- `pending-fix.schema.json` — `findingCategory` enum gains documented sub-category notation (`B-voice-frame` valid alongside A/B/C); `voiceFrameRewriteRationale` optional string.
+- `config.schema.json` — `remediate.autoHandoffVibeSec` boolean (default false); `remediate.applyVoiceFrameFixes` boolean (default false); `audit.f13.outputFormatExceptions` string array.
+
+### Migration notes
+
+- **No breaking changes.** All v0.5 commands, schemas, and state files remain valid.
+- **v0.5 composer.json continues to validate** against the v0.6 schema. `apiParameter` is optional; layers without it are treated as `null` (unknown), which makes F12 detection confidence-degrade per v0.5 fallback. Re-run `:first-run-setup --regenerate-composer` to populate `apiParameter` and unlock deterministic F12 verdicts.
+- **`directive-field` layer type is deprecated but still validates.** Existing composer.json files using `directive-field` continue to work; the schema emits a warning. New emissions use `global-directive`.
+- **v0.5 audit.json continues to validate.** Findings without `apiParameterContext` or `voiceFrameContradictions` are treated as v0.5-era — no migration required.
+- **`--auto-handoff-vibe-sec` and `--apply-voice-frame-fixes` are opt-in.** Default `:remediate` behavior is identical to v0.5 (banner-only handoff on F12 critical; voice-frame fixes always staged).
+- **F13 detection is automatic** on next `:audit` run. To suppress per-prompt: add prompt id to `audit.f13.outputFormatExceptions` in config, or add explicit `[OUTPUT FORMAT: flexible]` directive to the prompt content.
+
+---
+
 ## [0.5.0] — 2026-05-29
 
 Four additive capabilities, organized around closing the audit → fix loop. No breaking changes to v0.4 commands or surface area.
