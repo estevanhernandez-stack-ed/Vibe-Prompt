@@ -90,6 +90,47 @@ For each occurrence of a banned phrase `P` (per F2 evidence) in the prompt conte
 The substitution is template-based, not creative. v0.6 may add an LLM-assisted
 rewrite path that preserves prompt voice better — currently scope-deferred.
 
+### v0.6 — Category B sub-categories
+
+v0.6 splits Category B into two sub-categories on the `subCategory` field of
+each emitted diff. The split exists because banned-phrase removal and
+voice-frame rewriting carry different voice-drift risks; routing them
+identically would either under-stage the riskier rewrites or over-stage the
+mechanical removals.
+
+| Sub-category | Confidence | Routing default | Opt-in flag |
+|---|---|---|---|
+| `banned-phrase-removal` | 0.75 (v0.5 carry-over) | Stage; `--apply-contradictions` enables auto-write at ≥0.90 | `--apply-contradictions` |
+| `voice-frame-rewrite` | 0.65 | ALWAYS stages by default — auto-write disabled even at ≥0.90 confidence | `--apply-voice-frame-fixes` |
+
+**`banned-phrase-removal`** fires when F2 evidence carries an explicit banned
+phrase match (e.g. "Fellow Pilgrim"). This is the v0.5 default behavior — the
+diff uses find-and-rephrase templates against the matched phrase. Confidence
+stays at 0.75. Routing follows v0.5: stage by default, auto-write only when
+`--apply-contradictions` is passed AND the confidence reaches ≥0.90 (with the
+0.50 floor when the phrase appears more than 3 times).
+
+**`voice-frame-rewrite`** fires when the audit finding's
+`voiceFrameContradictions` array (v0.6 audit.schema.json extension) is
+populated. Detection comes from `references/voice-frame-detection.md` patterns
++ the voice-rule extraction step. Each contradiction triple
+(`{phrase, location, banSource}`) generates one rewrite diff. Confidence
+drops to 0.65 because the rewrite is semantic — the substitute phrase has to
+preserve the surrounding prose intent while clearing the contradiction.
+
+Voice-frame-rewrite diffs ALWAYS stage by default, even when the confidence
+weighted-average crosses 0.90. Auto-write requires the explicit
+`--apply-voice-frame-fixes` opt-in flag. The conservative default exists
+because voice-drift risk is non-trivial: a wrong rewrite quietly changes the
+prompt's tone in a way that only surfaces on re-eval. Staging gives the user
+a review checkpoint before that surface area moves.
+
+The two sub-categories are independent — a single prompt CAN produce both a
+banned-phrase-removal diff and a voice-frame-rewrite diff in the same
+`:remediate` run. They emit as separate pending files with distinct
+`findingId` values. `--apply-contradictions` and `--apply-voice-frame-fixes`
+are independent flags; passing one does NOT enable the other.
+
 ### Version bump
 
 Category B edits change registry content, which changes prompt output. Auto-bump the

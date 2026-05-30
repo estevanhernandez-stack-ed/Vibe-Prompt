@@ -119,6 +119,22 @@ Voice-frame findings inside code fences, `[BRACKETS]` blocks, or templated vars
 are suppressed (those are structural markup, not voice). The locator step
 consults `inventory.json` to identify these structural zones.
 
+**v0.6 Category B sub-category routing.** Each Category B diff emits a
+`subCategory` field per `remediate-result.schema.json` v0.6 extension:
+
+- F2 evidence with a direct banned-phrase match → `subCategory: "banned-phrase-removal"`,
+  confidence 0.75 (v0.5 default). Routes per v0.5: stages by default; auto-write
+  requires `--apply-contradictions` opt-in + confidence ≥0.90.
+- `voiceFrameContradictions` triples in the finding → one
+  `subCategory: "voice-frame-rewrite"` diff per triple. Confidence 0.65 — ALWAYS
+  stages by default, even at confidence ≥0.90. Auto-write requires the
+  `--apply-voice-frame-fixes` opt-in flag (independent of `--apply-contradictions`).
+
+Both sub-categories can produce separate diffs on the same prompt in the same
+:remediate run. Their pending files use distinct findingIds and stage
+independently. See `references/fix-categories.md` § "v0.6 — Category B
+sub-categories" for the full routing table.
+
 For each grouped finding:
 
 1. Locate the target file + range using:
