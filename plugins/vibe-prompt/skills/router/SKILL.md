@@ -40,6 +40,16 @@ Load `vibe-prompt:guide`. Then read target-app state and route. Branches 5 (grad
      4. **Re-run `/vibe-prompt:remediate`** — generates a fresh plan against the latest audit. Existing pending files are preserved; only new findings get appended.
    - Wait for the user to choose. If no action is selected, surface the summary and continue to branches 4-7.
 
+3d. **vibe-sec handoff result files exist** → review-vibe-sec-handoff-results branch (v0.6).
+   - Triggered when `.vibe-prompt/remediate/state/handoff-vibe-sec-*.json` glob returns at least one file (i.e., `:remediate --auto-handoff-vibe-sec` invoked vibe-sec on a previous run and recorded the result).
+   - Read the most recent handoff result file. Fields: `runId`, `timestamp`, `triggeringFinding`, `vibeSecVersion`, `vibeSecFindings`, `exitCode`, `scope`.
+   - Render: timestamp + `triggeringFinding` + `vibeSecVersion` + `exitCode` + count of `vibeSecFindings`. If `exitCode != 0`, surface the failure note. If `vibeSecFindings` is non-empty, list the top 3 by severity (id, severity, summary).
+   - Offer three next actions:
+     1. **Open the full handoff file** — walk through every entry in `vibeSecFindings`, cross-referenced against the F12 finding in `audit.json` that triggered the handoff (`triggeringFinding`).
+     2. **Dispatch `/vibe-sec:fix`** — vibe-sec's own remediation flow handles the app-level boundary fixes its audit found. vibe-prompt does NOT auto-write app-level fixes; that ownership stays with vibe-sec.
+     3. **Re-run `/vibe-prompt:remediate --auto-handoff-vibe-sec`** — generates a fresh handoff against the current state if the prompt-level F12 finding still applies.
+   - Wait for the user to choose. If no action is selected, surface the summary and continue to branches 4-7.
+
 4. **All three states exist, radar cache > 7 days old** → model news refresh suggested.
    - Render posture summary (top 3 audit findings + top 3 eval findings) + "Radar cache is stale — `/vibe-prompt:radar` to refresh? (zero LLM cost)"
    - Wait for confirm. If yes, hand off to radar. If no, surface full summary anyway.
