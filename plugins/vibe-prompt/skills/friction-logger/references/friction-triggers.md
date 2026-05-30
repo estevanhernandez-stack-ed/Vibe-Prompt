@@ -22,6 +22,9 @@ Single source of truth for which command logs which friction at which confidence
 | `inventory-schema-violation` | high | inventory.json failed schema validation on read |
 | `f9-fired-but-prompt-already-has-date-grounding` | low | User reports the prompt already has date context via a path the detection missed (composer layer or custom injection not recognized by step B); tune the step-B heuristic |
 | `injection-resistance-dimension-flat-across-prompts` | medium | All prompts in the inventory score the same on injectionResistance (all exactly 10 or all exactly the same deducted value); dimension formula may not be sensitive enough, OR app has uniform composition — verify manually |
+| `f12-api-parameter-detection-low-confidence` | medium | F12 detection fell back to layer-order check because the composer layers had `apiParameter: null` or `apiParameterConfidence < 0.6`; first-run-setup's apiParameter heuristics missed this app's call pattern |
+| `f13-fired-but-prompt-intentionally-flexible-output` | low | User reports F13 fired on a prompt where output flexibility is intentional (e.g., creative-discovery, evaluator-judge); add the prompt id to `audit.f13.outputFormatExceptions` config array |
+| `f13-recommended-fix-applied-and-eval-confirms-output-stability` | positive | After applying F13's recommended `[OUTPUT FORMAT:]` declaration and re-running `:eval`, output value-type-drift cleared; the F13 detection rule + recommendation template are paying off |
 
 ## first-run-setup triggers
 
@@ -91,3 +94,12 @@ Single source of truth for which command logs which friction at which confidence
 | `staged-fix-rejected` | medium | User reviewed a staged diff and rejected it via `:remediate --reject-pending <findingId>`. Signal that the confidence rubric over-rated the proposal, OR the template for that finding category needs tuning for this app's voice. Tune category routing or rubric weights. |
 | `auto-write-rolled-back` | high | User rolled back an auto-applied diff via `:remediate --rollback <ISO-timestamp>`. Strong signal that the auto-write confidence threshold is too low for the affected category, OR the diff template doesn't fit this app's structure. Lower the `autoApplyThreshold` OR tune the category template. |
 | `composer-auto-generation-confidence-low` | medium | `:first-run-setup` ran composer.json auto-generation and produced `globalConfidence < 0.5` (or fewer than 2 layers identified). Signal that the composer-detection heuristics missed this app's pattern. Extend the layer-classification regex catalog or surface a manual-verification prompt. |
+
+## remediate triggers (v0.6)
+
+| Trigger code | Confidence | When |
+|---|---|---|
+| `auto-handoff-vibe-sec-completed` | positive | `:remediate --auto-handoff-vibe-sec` invoked vibe-sec:audit successfully on an F12 critical finding; vibe-sec returned a non-error exit code and the handoff result file landed at `.vibe-prompt/remediate/state/handoff-vibe-sec-<timestamp>.json`. The auto-handoff path paid off (boundary review fired without manual prompting). |
+| `auto-handoff-vibe-sec-unavailable` | medium | `:remediate --auto-handoff-vibe-sec` flag was set BUT vibe-sec was not installed (Skill tool absent for `vibe-sec:audit`). `:remediate` fell back to v0.5 banner-only behavior. Surface in the banner so the user can install vibe-sec; don't block the rest of the run. |
+| `category-b-voice-frame-detection-confidence-low` | medium | Category B voice-frame detection ran and produced overall confidence < 0.6 (e.g., the global directive's voice rules were vague, OR voice-frame phrase pattern matches were sparse). Diff is staged regardless; signal that `voice-frame-detection.md` heuristics need tuning for this app's voice register. |
+| `category-b-voice-frame-rewrite-rejected` | low | User reviewed a staged Category B voice-frame rewrite (`subCategory: "voice-frame-rewrite"`) and rejected it via `:remediate --reject-pending <findingId>`. Signal that the voice-rule extraction misread the global directive OR the rewrite template doesn't match the app's preferred phrasing. Cluster rejections by `voiceFrameRewriteRationale` before proposing a change. |
