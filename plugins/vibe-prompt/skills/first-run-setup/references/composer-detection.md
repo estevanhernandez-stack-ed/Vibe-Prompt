@@ -287,15 +287,17 @@ When ≥4 layers resolve cleanly with `globalConfidence ≥ 0.7`:
 
 ## Layer-type → composer.schema.json type mapping
 
-The spec uses semantic layer names (`global-directive`, `format-directive`, etc.). The composer.schema.json `layers[].type` enum is `literal | directive-field | knowledge-injection | task-instruction | conditional`. Map as follows when writing the composer.json:
+The spec uses semantic layer names (`global-directive`, `format-directive`, etc.). The v0.6 composer.schema.json `layers[].type` enum is `literal | directive-field | global-directive | knowledge-injection | task-instruction | conditional`. Map as follows when writing the composer.json:
 
-| Spec semantic layer | composer.schema.json `type` |
-|---|---|
-| `global-directive` | `directive-field` |
-| `format-directive` | `directive-field` |
-| `knowledge-context` | `knowledge-injection` |
-| `task-instruction` | `task-instruction` |
-| `user-data` | `literal` (treated as user-interpolated literal for downstream consumers) |
+| Spec semantic layer | composer.schema.json `type` (v0.6+) | v0.5 legacy emission |
+|---|---|---|
+| `global-directive` | `global-directive` | `directive-field` |
+| `format-directive` | `directive-field` | `directive-field` |
+| `knowledge-context` | `knowledge-injection` | `knowledge-injection` |
+| `task-instruction` | `task-instruction` | `task-instruction` |
+| `user-data` | `literal` (treated as user-interpolated literal for downstream consumers) | `literal` |
+
+**Migration note:** `directive-field` is **deprecated for persona / master-directive layers in v0.6+** — fresh detections emit `global-directive` directly so F12 detection and remediate logic don't need to guess intent from the layer `id`. The schema enum still accepts `directive-field` for backward compat (legacy v0.5 composer.json files continue to validate without re-generation), but `:first-run-setup --regenerate-composer` will rewrite them to `global-directive` on next run.
 
 The semantic label is preserved in the layer `id` (e.g., `id: "directive-persona"`, `id: "format-default"`) so consumers can recover the semantic grouping when needed.
 
