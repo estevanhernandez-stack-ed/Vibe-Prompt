@@ -98,8 +98,11 @@ Each fired finding applies deductions per the list below. Deductions stack: if t
 | **F10** | **high** | **−1**              | —                | —                   | —               | **−4**              |
 | **F11** | **medium** | —                 | —                | —                   | —               | **−2**              |
 | **F12** | **critical** | —               | —                | **−2**              | —               | **−6**              |
+| **F13** | **medium**   | **−1**          | **−2**           | —                   | —               | —                   |
 
 **F9 rationale:** a prompt handling dates without temporal grounding gives the model instructions that are ambiguous relative to real-world time. The model's training cutoff becomes an invisible and wrong "current date." instruction-clarity penalty is −3 (high) because the ambiguity is structural. schema-tightness penalty is −1 because the missing temporal anchor implies the output schema can't be reliably satisfied when dates matter.
+
+**F13 rationale (v0.6):** a prompt using structural cues (`[BRACKETS]` blocks, repeated `{{vars}}`, JSON-shaped data sections) without an explicit output-format declaration leaves the model to infer whether to emit prose or structured output. The model may interpret the cues as "output JSON" and leak JSON markings into prose-expected output (the v0.3-era synastry_report case), or vice versa. schema-tightness penalty is −2 because the structural-cue + no-format-declaration combination directly undermines output-schema conformance — the prompt body LOOKS like a schema but never declares one, so the model's inference of the schema is brittle. instruction-clarity penalty is −1 because the absent format directive is a clarity gap, not a structural ambiguity (lighter than F9's −3 since the output-shape question is one aspect of clarity, not the whole instruction surface).
 
 **F10 rationale:** accepting user-controlled input without a sanitization directive is the root injection-surface smell. injectionResistance −4 is the primary penalty. instruction-clarity −1 because the absence of a "treat as data" directive leaves instructions ambiguous in adversarial contexts.
 
