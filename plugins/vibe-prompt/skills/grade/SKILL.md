@@ -94,6 +94,33 @@ Read `baseline.json` if it exists. Apply the monotonic algorithm per
 - Friction-log `regression-flagged-and-accepted-as-baseline` with medium confidence.
 - Advance baseline to current composite even on regression. Note the override in the dashboard.
 
+### 3a. Per-workspace baseline comparison (v0.7+)
+
+For multi-workspace audits (step 2a emitted `appComposite.perWorkspace`):
+
+- Read the prior baseline's per-workspace composites (if any) — baseline.json stores
+  `appCompositePerWorkspace[<name>]` when v0.7+ baselines have been established.
+- Run the monotonic algorithm **per workspace** independently — each workspace gets its own
+  per-workspace baseline comparison. Advance baseline per workspace only where the current
+  per-workspace composite >= that workspace's prior baseline. Each per-workspace regression
+  is a distinct flaggedRegressions entry.
+- For each per-workspace regression, emit a `flaggedRegressions[]` entry with
+  `workspaceIdentifier: <workspaceName>` so consumers can route the alert to the team that
+  owns that workspace.
+- Track per-workspace regression tracking separately from aggregate regression. The
+  aggregate-level regression on `appComposite.aggregate` is computed independently (using the
+  same monotonic rule) and emitted as a `flaggedRegressions[]` entry with
+  `workspaceIdentifier: null` (or omitted) — aggregate-level regression vs per-workspace
+  regression do not collapse onto each other.
+- This is "advance baseline per workspace" — the monotonic property holds *per workspace*,
+  not just globally. A workspace whose composite improves advances even if the aggregate
+  regressed; a workspace that regresses does NOT advance even if the aggregate improved.
+
+**Back-compat (single-workspace mode):** when step 2a emitted `appComposite` as a flat
+number (v0.6 shape), step 3 runs the unmodified v0.6 monotonic check against
+`baseline.appComposite` — no per-workspace branch executed. Existing v0.6 baselines remain
+valid; the schema's flat-number `appComposite` branch keeps reading them.
+
 ### 4. Write grade-result state file
 
 Write `.vibe-prompt/grade/state/grade-<runId>.json` (runId = `grade-<YYYY-MM-DD>-<HHMM>`)
