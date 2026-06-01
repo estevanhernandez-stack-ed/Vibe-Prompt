@@ -54,6 +54,26 @@
           "type": "object",
           "properties": {
             "value": { "type": "integer", "minimum": 1, "maximum": 10 },
+            "aggregate": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 10,
+              "description": "v0.7+. Cross-workspace aggregate composite. Preserves v0.6 number semantics for back-compat consumers that read appComposite as a single number."
+            },
+            "perWorkspace": {
+              "type": "object",
+              "description": "v0.7+. Per-workspace composite scores keyed by workspace name. Value is number (composite score) or null (workspace had no findings).",
+              "additionalProperties": {
+                "type": ["number", "null"],
+                "minimum": 1,
+                "maximum": 10
+              }
+            },
+            "workspacesWithNoFindings": {
+              "type": "array",
+              "description": "v0.7+. Workspace names whose per-workspace composite is null because no findings were emitted against them.",
+              "items": { "type": "string" }
+            },
             "dimensions": {
               "type": "object",
               "properties": {
@@ -83,7 +103,11 @@
         "properties": {
           "promptId": { "type": "string" },
           "dimension": { "type": "string" },
-          "delta": { "type": "integer" }
+          "delta": { "type": "integer" },
+          "workspaceIdentifier": {
+            "type": ["string", "null"],
+            "description": "v0.7+. Workspace where the regression was detected (when grade ran in per-workspace mode). null = aggregate-level regression."
+          }
         }
       }
     }
