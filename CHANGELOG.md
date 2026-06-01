@@ -1,5 +1,76 @@
 # Changelog
 
+## [0.7.0] — 2026-06-01
+
+Six additive capabilities organized around the "generalization completeness" theme. Closes the four structural gaps that surfaced when v0.6 was probed across multi-composer / multi-call-site / shared-package / monorepo app shapes (626Labs, WeSeeYouAtTheMovies, Quiz Show). No breaking changes to v0.6 commands, schemas, or state files.
+
+### Added
+
+- **`composers[]` array + four `kind` values on `composer.schema.json`.** Top-level `composers[]` array (each entry: `{kind, path, layers[], globalConfidence, regenerationSource, apiParameterCompleteness}`). `kind` enum: `single-composer` | `multi-composer` | `multi-call-site` | `shared-package`. Top-level `compositionShape` enum (`single` | `multi`) drives downstream branching. v0.6 composer.json with top-level `layers[]` auto-promotes to `composers[0]` with `kind: "single-composer"` semantics. For single-composer shapes, top-level `layers[]` is also emitted for back-compat with v0.6 consumers.
+
+- **Workspace-awareness on `inventory.schema.json`.** New optional fields: `workspaceKind` enum (`single-workspace` | `npm-workspaces` | `nested-projects` | `unknown`), `workspaces[]` array (each: `{name, path, packageJsonPath, inventoryFile}`), `scanExcludes[]` string array. `registry[].kind` enum added (`prompt-content` | `model-routing` | `task-mapping` | `hybrid`). `:scan` emits one per-workspace `inventory-<name>.json` plus the top-level aggregator for monorepo kinds.
+
+- **Three new scan capabilities.** Workspace detection (npm `workspaces` declaration + nested package.json discovery); registry-kind classification; auto-detection of exclude candidates (`vibe-*/`, `*-main/`, `_ARCHIVE_*/`) with friction-log recommendation when not applied.
+
+- **Multi-composer / multi-call-site / shared-package detection in `:first-run-setup`.** SDK-call topology drives `kind` classification: one composer file (single-composer); two distinct composer files (multi-composer); no canonical file with SDK calls scattered inline (multi-call-site, grouped by SDK + persona heuristic); composer in `packages/<name>/` referenced by multiple workspaces (shared-package). Per-composer `apiParameter` detection (no longer global).
+
+- **Category D migration templates in `:remediate`.**
+  - **D-1 inline-to-registry** — F1 → registry entry generation + call-site replacement + import injection. Default confidence 0.85. Stages by default; `--apply-inline-to-registry` opts in to normal routing.
+  - **D-2 typed-renderer** — F4 → `requiredVars` field + `renderPrompt(id, vars)` helper + call-site updates. Default confidence 0.75. Stages by default; `--apply-typed-renderer` opts in.
+  - **D-3 model-consolidation** — F6 with multiple occurrences → `src/config/ai.ts` + `DEFAULT_MODEL` export + per-site replacement. Default confidence 0.88. Routes auto-write at top end; `--apply-model-consolidation` controls routing. Per-workspace config files emitted when models differ across workspaces (monorepo apps).
+
+- **F10+F11(+F12-high) consolidated-diff routing.** Findings on the same call site now collapse into one Category C diff with `findingIds[]` referencing all closed findings. F12-critical excluded (needs auto-handoff path, not Category C subsumption). Top-level `consolidatedDiffs[]` array in remediate-result.json.
+
+- **F12 severity-decoupling.** F12 severity degrades to high ONLY when `apiParameter` confidence is low on a layer. Composer multiplicity no longer drags severity — exposed as `findings[].metadata.composerMultiplicityFlag` for context. Multi-composer apps with high apiParameter confidence keep critical severity per composer.
+
+- **F6-suspect-model sub-finding.** Fires when a prompt references a model ID absent from the bundled `known-models.md` list. Severity medium. Confidence high when context7 vendor lookup confirms not-in-published-list; medium when bundled-list-only. Suppressible via `config.audit.f6.modelIdExceptions`.
+
+- **F1 registry-kind awareness.** F1 (inline-prompt registry bypass) now gates on `registry.kind`: fires only on `prompt-content` or `hybrid` registries. Model-routing and task-mapping registries no longer trigger F1 false-positives (closes 626Labs `config/modelRegistry.ts` class). F1b still fires when no prompt-content registry exists at all.
+
+- **F12 absent-system-instruction sub-case.** Fires with severity high when a composer has a user-var layer in `contents` but no system-instruction layer at all (WeSeeYou badge-icon-generator pattern). Records `apiParameterContext.absentSystemInstructionLayer: true`.
+
+- **Per-workspace composites in `:grade`.** `appComposite.perWorkspace[<workspace-name>]` populated when findings carry `workspaceIdentifier`. `appComposite.aggregate` reports cross-workspace mean. Per-workspace monotonic baseline regression tracked separately (`grade-result.regressions[].workspaceIdentifier`).
+
+- **Three new router state branches.** `workspace-rescan-needed`, `workspace-grade-needed`, `category-d-pending-review` (10 → 13 total).
+
+- **9 new friction triggers** for v0.7 detection gaps: `composer-multiplicity-detected`, `composer-kind-detection-ambiguous`, `workspace-detection-confidence-low`, `scan-excludes-recommended-but-not-applied`, `category-d-migration-applied-and-eval-confirms-no-regression`, `category-d-migration-rejected`, `f6-suspect-model-detected`, `consolidated-diff-closes-multiple-findings`, `f12-severity-no-longer-degraded-by-composer-multiplicity`.
+
+- **Three new `:remediate` flags:** `--apply-inline-to-registry`, `--apply-typed-renderer`, `--apply-model-consolidation`. Each flips its Category D routing from stage-only to normal routing (auto-write at ≥0.90). Conservative default preserves human review on migrations.
+
+### Changed
+
+- `:scan` runs workspace-detection before inventory emission and gates inventory shape on `workspaceKind`.
+- `:scan` classifies each detected registry by `kind` and writes it into inventory.
+- `:audit` iterates composer-aware findings per composer when `composers[]` is present; falls back to single-composer behavior when only top-level `layers[]` exists.
+- `:audit` F12 severity decision no longer reads composer-multiplicity as a degradation signal.
+- `:audit` F1 detection skips registries with `kind: "model-routing"` or `"task-mapping"`.
+- `:remediate` groups F10+F11(+F12-high) on same call site into consolidated Category C diffs.
+- `:grade` partitions findings by `workspaceIdentifier` and emits per-workspace composites alongside `aggregate`.
+- Audit report template renders `composerIdentifier`, `workspaceIdentifier`, `consolidatedWith`, and F6-suspect-model findings.
+- Guide SKILL adds "Generalization completeness (v0.7)" section.
+
+### Schema changes
+
+- `composer.schema.json` — `composers[]` array + `kind` enum + `compositionShape` enum at top level (top-level `layers[]` retained as oneOf branch for back-compat).
+- `inventory.schema.json` — `registry[].kind` enum optional; top-level `workspaces[]` + `scanExcludes[]` + `workspaceKind` optional.
+- `audit.schema.json` — `findings[].composerIdentifier` optional string; `findings[].workspaceIdentifier` optional string; `findings[].consolidatedWith` optional array; `findings[].id` enum gains `F6-suspect-model`; `findings[].metadata.composerMultiplicityFlag` optional boolean; `findings[].apiParameterContext.absentSystemInstructionLayer` optional boolean.
+- `remediate-result.schema.json` — `appliedDiffs[].migrationKind` optional enum (`D-1-inline-to-registry` | `D-2-typed-renderer` | `D-3-model-consolidation`); top-level `consolidatedDiffs[]` optional.
+- `pending-fix.schema.json` — `findingCategory` enum gains `D-1` | `D-2` | `D-3`; `migrationKind` optional enum; `consolidatedFindingIds` optional array.
+- `grade-result.schema.json` — `appComposite.perWorkspace` optional object (keys = workspace names); `appComposite.aggregate` number; flat-number `appComposite` shape still valid via oneOf.
+- `config.schema.json` — `scan.workspaceDetection` enum default `auto`; `scan.excludes` string array; `audit.f6.modelIdExceptions` string array; `remediate.applyInlineToRegistry` / `applyTypedRenderer` / `applyModelConsolidation` booleans (default false).
+
+### Migration notes
+
+- **No breaking changes.** All v0.6 commands, schemas, and state files remain valid.
+- **v0.6 composer.json validates** against v0.7 schema. Single-composer shape with top-level `layers[]` auto-promotes to `composers[0]`. Re-run `:first-run-setup --regenerate-composer` to emit the explicit `composers[]` array.
+- **v0.6 inventory.json validates** — `workspaceKind` / `workspaces[]` / `scanExcludes[]` / `registry.kind` are all optional. Re-run `:scan` to populate them.
+- **v0.6 audit.json validates** — `composerIdentifier` / `workspaceIdentifier` / `consolidatedWith` / `metadata.composerMultiplicityFlag` are all optional.
+- **v0.6 grade-result.json validates** — flat-number `appComposite` is the v0.6 shape, preserved via oneOf branch.
+- **Category D routing is conservative by default.** D-1 / D-2 / D-3 diffs stage even at high confidence unless the corresponding `--apply-*` flag is set. Run `:remediate` once without flags to review staged migrations; opt in per flag once you've reviewed the diffs.
+- **F1 false-positive class on model-routing registries is auto-resolved on next `:audit` run** — no migration needed beyond a fresh `:scan` to populate `registry.kind`.
+
+---
+
 ## [0.6.0] — 2026-05-29
 
 Five additive capabilities organized around the "detection sharpness" theme. No breaking changes to v0.5 commands or surface area.
