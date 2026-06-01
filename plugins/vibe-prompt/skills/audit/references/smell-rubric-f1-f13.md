@@ -221,10 +221,12 @@ The detection is best-effort and may require the agent to read the actual conten
    - If both layers share the same `apiParameter` → composition order matters within that parameter. Fall through to step 6 (v0.5 layer-order rule).
    - If either layer's `apiParameter === null` (unknown) → composition can't be reasoned about deterministically. Fall through to step 6 BUT mark severity for confidence-degrade to `high` per step 7.
 6. **Fire when** (v0.5 fallback / same-apiParameter branch): user-var injection layer `index` ≤ system-instruction layer `index` AND step 5 did not declare structural safety. The model receives user-controlled content at or before its role definition, which can override or color the system instruction.
-7. **Confidence degrade:** severity degrades from `critical` to `high` and evidence notes "composition order detection low-confidence; verify manually" when ANY of:
-   - `composer.json` `globalConfidence` field < 0.6
-   - composer.json is absent
-   - either layer's `apiParameter === null` (v0.6 fallback signal)
+7. **Confidence degrade (v0.7 decoupled from composer multiplicity).** Severity degrades from `critical` to `high` ONLY on **detection ambiguity** — composer-multiplicity is NOT a severity input (multiplicity does not drag severity). When apiParameter is unambiguous on all relevant layers, severity stays critical even when the app is multi-composer / multi-call-site / shared-package. Severity degrades to `high` when ANY of:
+   - **Per-layer ambiguity:** the user-var layer OR system-instruction layer has `apiParameterConfidence < 0.6`
+   - **Either layer's `apiParameter === null`** (v0.6 fallback signal preserved)
+   - `composer.json` is absent
+   - Active composer's `globalConfidence < 0.6` due to per-layer detection uncertainty (not due to multiplicity dilution)
+8. **Composer-multiplicity flag (v0.7, context-only).** When the active composer iteration belongs to a multi-composer / multi-call-site / shared-package shape, emit `metadata.composerMultiplicityFlag: true` on the F12 finding for context. This is informational only — multiplicity is **not a severity input** under v0.7.
 
 **Evidence:**
 - `evidence.promptId`

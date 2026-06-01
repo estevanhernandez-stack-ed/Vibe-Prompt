@@ -72,10 +72,12 @@ Apply the F1-F12 rubric (F1-F9 active in v0.4; F10-F12 are Phase 4) to the cache
      - **If both layers share the SAME `apiParameter`** (e.g., both interpolated into the same `systemInstruction` string, or both inside the `messages[]` array) → composition order matters within that parameter. Fall through to step 2 (v0.5 layer-order rule).
      - **If either layer's `apiParameter` is `null` (unknown)** → API-parameter check is inconclusive. Fall through to step 2 but mark severity for confidence-degrade per step 3 below.
    - **Step 2 — Fire F12 when:** user-var layer index ≤ system-instruction layer index AND step 1 did not declare structural safety. Build finding `{ id: "F12", severity: "critical", handoffHint: "vibe-sec:audit", evidence: { promptId, userVar, userVarLayer, systemInstructionLayer, compositionOrder[] }, apiParameterContext: { userVarApiParameter, systemInstructionApiParameter, separationVerified: false }, recommendation: <template from rubric> }`.
-   - **Step 3 — Confidence degrade:** severity degrades from `critical` to `high` and evidence notes "composition order detection low-confidence; verify manually" when ANY of:
-     - composer.json `globalConfidence` < 0.6
-     - composer.json is absent
-     - either layer's `apiParameter` is `null` (unknown destination — v0.6 fallback path)
+   - **Step 3 — Confidence degrade (v0.7 decoupled from composer multiplicity).** Severity degrades from `critical` to `high` ONLY on **detection ambiguity** — composer-multiplicity by itself is NOT a severity input. Severity stays critical when apiParameter is unambiguous on all relevant layers, even when the app is multi-composer / multi-call-site. Severity degrades to `high` when ANY of:
+     - **Per-layer apiParameter confidence < 0.6** on the user-var layer OR the system-instruction layer (`apiParameterConfidence` field on the active composer's layer)
+     - **Either layer's `apiParameter` is `null`** (unknown destination — v0.6 fallback path preserved)
+     - **composer.json is absent**
+     - Active composer's `globalConfidence` < 0.6 — but only when that confidence reflects detection uncertainty on the layers being inspected, not multiplicity-induced confidence dilution.
+   - **Multiplicity flag (v0.7, context only):** when the active composer is part of a multi-composer / multi-call-site / shared-package shape, emit `metadata.composerMultiplicityFlag: true` on the finding for downstream consumers. This is informational — multiplicity is **not** a severity input.
 
 4f. **F13 implicit output format detection (v0.6, static — no LLM).** For each prompt in inventory (registry entries + inline prompts):
    - **Read F13 exception list:** load `audit.f13.outputFormatExceptions` (string array) from config. If the prompt's id appears in this array, **skip F13 for that prompt** (user has acknowledged intentional flexible output).
