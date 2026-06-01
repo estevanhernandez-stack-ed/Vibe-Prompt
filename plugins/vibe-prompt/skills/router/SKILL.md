@@ -5,7 +5,7 @@ description: This skill should be used when the user says "/vibe-prompt" (bare, 
 
 # /vibe-prompt (bare router)
 
-Load `vibe-prompt:guide`. Then read target-app state and route. Branches 5 (grade) and 6 (iterate) are new in v0.3.
+Load `vibe-prompt:guide`. Then read target-app state and route. Branches 5 (grade) and 6 (iterate) are new in v0.3. v0.7 adds three workspace-aware branches (3e, 3f, 3g) — bringing the total to 13 state branches.
 
 ## State checks
 
@@ -49,6 +49,27 @@ Load `vibe-prompt:guide`. Then read target-app state and route. Branches 5 (grad
      2. **Dispatch `/vibe-sec:fix`** — vibe-sec's own remediation flow handles the app-level boundary fixes its audit found. vibe-prompt does NOT auto-write app-level fixes; that ownership stays with vibe-sec.
      3. **Re-run `/vibe-prompt:remediate --auto-handoff-vibe-sec`** — generates a fresh handoff against the current state if the prompt-level F12 finding still applies.
    - Wait for the user to choose. If no action is selected, surface the summary and continue to branches 4-7.
+
+3e. **Workspace rescan needed** → workspace-rescan-needed branch (v0.7).
+   - Triggered when `inventory.json.workspaceKind === "npm-workspaces"` OR `"nested-projects"` AND no per-workspace inventory files exist (glob `.vibe-prompt/state/inventory-*.json` returns zero matches).
+   - Read `inventory.workspaces[]` from the top-level aggregator. If the array is non-empty but no `inventory-<workspace-name>.json` siblings exist, the workspace inventories are stale or were never emitted.
+   - Render: workspaceKind + the list of declared workspace names + path to top-level inventory + "Per-workspace inventories missing. Run `/vibe-prompt:scan` to populate `inventory-<workspace>.json` files (read-only, free)."
+   - Wait for confirm. If yes, hand off to scan with workspace mode active. If no, exit.
+
+3f. **Workspace grade needed** → workspace-grade-needed branch (v0.7).
+   - Triggered when per-workspace inventory files exist (glob `.vibe-prompt/state/inventory-*.json` returns ≥1) AND the latest `.vibe-prompt/grade/state/grade-*.json` has no `appComposite.perWorkspace` map (or the map is missing the workspaces present in the inventory aggregator).
+   - Render: list of detected workspaces + "Per-workspace inventories exist but no per-workspace composites in the latest grade run. Run `/vibe-prompt:grade` to emit `appComposite.perWorkspace` so each workspace has its own monotonic baseline."
+   - Wait for confirm. If yes, hand off to grade. If no, surface the gap in the posture banner.
+
+3g. **Category D pending review** → category-d-pending-review branch (v0.7).
+   - Triggered when pending Category D diffs exist (`.vibe-prompt/remediate/pending/*.diff` whose YAML front-matter declares `findingCategory: "D-1"`, `"D-2"`, or `"D-3"`, OR whose filename matches `D-{1,2,3}-*.diff`).
+   - Render: list of pending Category D diffs grouped by `migrationKind` — D-1 inline-to-registry, D-2 typed-renderer, D-3 model-consolidation — with `findingId`, `confidence`, and `targetFile`.
+   - Offer four next actions and surface the corresponding `--apply-*` flag hint per migration kind:
+     1. **Review per-diff** — open one pending `.diff` and walk the front-matter + body.
+     2. **Apply staged D-1 diffs** — `/vibe-prompt:remediate --apply-inline-to-registry` lifts D-1 routing from stage-only to normal (auto-write at confidence ≥0.90).
+     3. **Apply staged D-2 diffs** — `/vibe-prompt:remediate --apply-typed-renderer` lifts D-2 routing.
+     4. **Apply staged D-3 diffs** — `/vibe-prompt:remediate --apply-model-consolidation` lifts D-3 routing.
+   - Wait for the user to choose. If no action is selected, continue to branches 4-7.
 
 4. **All three states exist, radar cache > 7 days old** → model news refresh suggested.
    - Render posture summary (top 3 audit findings + top 3 eval findings) + "Radar cache is stale — `/vibe-prompt:radar` to refresh? (zero LLM cost)"
