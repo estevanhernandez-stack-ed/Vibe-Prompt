@@ -32,6 +32,22 @@
     },
     "costCeiling": { "type": "number", "minimum": 0 },
     "fixturePath": { "type": "string" },
+    "scan": {
+      "type": "object",
+      "description": "v0.7+. Scan-time configuration (workspace detection + exclude globs).",
+      "properties": {
+        "workspaceDetection": {
+          "enum": ["auto", "force-single", "force-monorepo"],
+          "default": "auto",
+          "description": "v0.7+. Workspace-detection mode. auto = inspect package.json + nested package.json files. force-single = treat as single-workspace regardless of layout. force-monorepo = treat as monorepo even when only one package.json is found."
+        },
+        "excludes": {
+          "type": "array",
+          "description": "v0.7+. Glob patterns to exclude during scan (applied during file walk).",
+          "items": { "type": "string" }
+        }
+      }
+    },
     "eval": {
       "type": "object",
       "properties": {
@@ -76,6 +92,17 @@
               "items": { "type": "string" }
             }
           }
+        },
+        "f6": {
+          "type": "object",
+          "description": "v0.7+. F6 (model registry / suspect-model) detection configuration.",
+          "properties": {
+            "modelIdExceptions": {
+              "type": "array",
+              "description": "Model IDs to treat as known even when missing from the bundled known-models list. Suppresses F6-suspect-model on these.",
+              "items": { "type": "string" }
+            }
+          }
         }
       }
     },
@@ -108,6 +135,21 @@
           "type": "boolean",
           "default": false,
           "description": "v0.6+. When true, Category B voice-frame rewrites follow normal confidence routing (auto-write if confidence ≥0.90). When false (default), voice-frame rewrites always stage for user review regardless of confidence."
+        },
+        "applyInlineToRegistry": {
+          "type": "boolean",
+          "default": false,
+          "description": "v0.7+. When true, Category D-1 inline-to-registry diffs follow normal confidence routing (auto-write at >=0.90). When false (default), D-1 diffs always stage for user review."
+        },
+        "applyTypedRenderer": {
+          "type": "boolean",
+          "default": false,
+          "description": "v0.7+. When true, Category D-2 typed-renderer diffs follow normal confidence routing. When false (default), D-2 diffs always stage."
+        },
+        "applyModelConsolidation": {
+          "type": "boolean",
+          "default": false,
+          "description": "v0.7+. When true, Category D-3 model-consolidation diffs follow normal confidence routing. When false (default), D-3 diffs always stage."
         }
       }
     }
