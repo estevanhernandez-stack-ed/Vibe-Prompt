@@ -7,10 +7,23 @@
       "required": ["findingId", "findingCategory", "confidence", "targetFile"],
       "properties": {
         "findingId": { "type": "string" },
-        "findingCategory": { "enum": ["A", "B", "C"] },
+        "findingCategory": { "enum": ["A", "B", "C", "D-1", "D-2", "D-3"] },
         "subCategory": {
           "type": "string",
           "description": "v0.6+. Sub-category distinguishing fix variants. For Category B: `banned-phrase-removal` (v0.5 default) vs `voice-frame-rewrite` (v0.6 voice-frame extension)."
+        },
+        "migrationKind": {
+          "enum": [
+            "D-1-inline-to-registry",
+            "D-2-typed-renderer",
+            "D-3-model-consolidation"
+          ],
+          "description": "v0.7+. Migration template that produced this diff. Mirrors findingCategory D-1/D-2/D-3 but is explicit for downstream consumers."
+        },
+        "consolidatedFindingIds": {
+          "type": "array",
+          "description": "v0.7+. When this diff closes multiple findings (e.g., F10+F11 consolidation), the additional finding IDs beyond `findingId`.",
+          "items": { "type": "string" }
         },
         "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
         "targetFile": { "type": "string" },
@@ -90,7 +103,35 @@
         "autoApply": { "type": "boolean" },
         "interactive": { "type": "boolean" },
         "skipF12": { "type": "boolean" },
-        "applyContradictions": { "type": "boolean" }
+        "applyContradictions": { "type": "boolean" },
+        "applyInlineToRegistry": {
+          "type": "boolean",
+          "description": "v0.7+. Flipped by --apply-inline-to-registry; allows Category D-1 diffs to auto-write at confidence >=0.90."
+        },
+        "applyTypedRenderer": {
+          "type": "boolean",
+          "description": "v0.7+. Flipped by --apply-typed-renderer; allows Category D-2 diffs to auto-write at confidence >=0.90."
+        },
+        "applyModelConsolidation": {
+          "type": "boolean",
+          "description": "v0.7+. Flipped by --apply-model-consolidation; allows Category D-3 diffs to auto-write at confidence >=0.90."
+        }
+      }
+    },
+    "consolidatedDiffs": {
+      "type": "array",
+      "description": "v0.7+. Diffs that close multiple findings as a single change (e.g., F10+F11+F12-high consolidated into one Category C diff).",
+      "items": {
+        "type": "object",
+        "required": ["path", "findingIds", "rationale"],
+        "properties": {
+          "path": { "type": "string" },
+          "findingIds": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "rationale": { "type": "string" }
+        }
       }
     }
   }
