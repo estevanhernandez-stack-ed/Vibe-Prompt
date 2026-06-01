@@ -40,6 +40,10 @@
         "detected": { "type": "boolean" },
         "location": { "type": ["string", "null"] },
         "format": { "type": ["string", "null"] },
+        "kind": {
+          "enum": ["prompt-content", "model-routing", "task-mapping", "hybrid"],
+          "description": "v0.7+. Registry classification. prompt-content = string prompts (audit F1 fires when bypassed). model-routing = task-id -> model-id mapping (F1 does not fire on inline prompts that aren't prompt content). task-mapping = task descriptors / IO schemas. hybrid = mixes prompt content with model IDs."
+        },
         "entries": {
           "type": "array",
           "items": {
@@ -98,6 +102,29 @@
           }
         }
       }
+    },
+    "workspaceKind": {
+      "enum": ["single-workspace", "npm-workspaces", "nested-projects", "unknown"],
+      "description": "v0.7+. Workspace topology detected at scan time. single-workspace = one package.json, no workspaces declaration. npm-workspaces = top-level package.json with a workspaces field. nested-projects = no top-level workspaces declaration but multiple nested package.json files. unknown = no package.json detected."
+    },
+    "workspaces": {
+      "type": "array",
+      "description": "v0.7+. Detected workspace roots (for npm-workspaces / nested-projects). Each entry points at its own per-workspace inventory file; the top-level inventory.json acts as an aggregator.",
+      "items": {
+        "type": "object",
+        "required": ["name", "path", "packageJsonPath", "inventoryFile"],
+        "properties": {
+          "name": { "type": "string" },
+          "path": { "type": "string" },
+          "packageJsonPath": { "type": "string" },
+          "inventoryFile": { "type": "string" }
+        }
+      }
+    },
+    "scanExcludes": {
+      "type": "array",
+      "description": "v0.7+. Effective exclude glob set applied during scan (from config.scan.excludes + any auto-applied defaults).",
+      "items": { "type": "string" }
     }
   }
 }
