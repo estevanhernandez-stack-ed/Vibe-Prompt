@@ -14,8 +14,21 @@
   "properties": {
     "findingId": { "type": "string" },
     "findingCategory": {
-      "enum": ["A", "B", "C", "B-voice-frame"],
-      "description": "Top-level fix category. A = mechanical content drop-in. B = contradiction removal. C = sanitization defense. v0.6+ adds sub-category notation: `B-voice-frame` distinguishes voice-frame rewrites from banned-phrase removals (different confidence + routing)."
+      "enum": ["A", "B", "C", "B-voice-frame", "D-1", "D-2", "D-3"],
+      "description": "Top-level fix category. A = mechanical content drop-in. B = contradiction removal. C = sanitization defense. v0.6+ adds sub-category notation: `B-voice-frame` distinguishes voice-frame rewrites from banned-phrase removals (different confidence + routing). v0.7+ adds D-1/D-2/D-3 migration categories: D-1 = inline-to-registry, D-2 = typed-renderer, D-3 = model-consolidation."
+    },
+    "migrationKind": {
+      "enum": [
+        "D-1-inline-to-registry",
+        "D-2-typed-renderer",
+        "D-3-model-consolidation"
+      ],
+      "description": "v0.7+. Explicit migration-template identifier; mirrors findingCategory D-1/D-2/D-3."
+    },
+    "consolidatedFindingIds": {
+      "type": "array",
+      "description": "v0.7+. When this fix closes multiple findings (e.g., F10+F11 consolidation), the additional finding IDs beyond `findingId`.",
+      "items": { "type": "string" }
     },
     "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
     "targetFile": { "type": "string" },
