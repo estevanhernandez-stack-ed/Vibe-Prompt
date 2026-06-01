@@ -186,6 +186,18 @@ Both `systemPart` and `userInput` → `apiParameter: "prompt"`. F12 falls throug
 
 When any layer in a composer.json emits `apiParameter: null`, friction-log `f12-api-parameter-detection-low-confidence` (medium) at composer.json emission time. This surfaces to `/evolve-prompt` so detection patterns can be tuned via friction-driven SKILL edits.
 
+### Multi-composer apiParameter independence (v0.7+)
+
+Stage 2b runs **per composer** in `composers[]`, not globally. Each composer's layers carry their own `apiParameter` + `apiParameterConfidence` independently — apiParameter destinations may differ between composers in the same app.
+
+Worked example — 626Labs multi-composer:
+- Composer A (`galaxyCore.ts`): persona + master-directive layers concatenated into `systemInstruction:` arg of `generateContent(...)`. All layers emit `apiParameter: "systemInstruction"`.
+- Composer B (`ChatController.ts`): user-turn layer interpolated into `contents[].parts[].text`. The user-data layer emits `apiParameter: "contents"`.
+
+The two composers' apiParameter mappings differ — differing apiParameter destinations per composer is the load-bearing v0.7 case. The apiParameter destinations vary across composers in the same app; they differ per composer. v0.6's global apiParameter detection would have collapsed both composers' results into a single shape; v0.7 preserves them. Downstream, F12 detection consumes each composer's layers independently and gets the right verdict per composer.
+
+`apiParameterCompleteness` is reported per composer (fraction of that composer's layers with non-null `apiParameter`), never aggregated across composers — so a composer with 100% completeness can sit alongside one at 60% in the same composer.json without cross-contamination.
+
 ---
 
 ## Stage 3 — Layer classification
