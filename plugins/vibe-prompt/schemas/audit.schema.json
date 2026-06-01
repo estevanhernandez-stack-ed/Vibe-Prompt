@@ -13,12 +13,35 @@
         "type": "object",
         "required": ["id", "smell", "severity", "evidence", "recommendation"],
         "properties": {
-          "id": { "enum": ["F1", "F1b", "F2", "F3", "F4", "F5", "F6", "F7", "F9", "F10", "F11", "F12", "F13"] },
+          "id": {
+            "enum": [
+              "F1", "F1b", "F2", "F3", "F4", "F5", "F6", "F6-suspect-model",
+              "F7", "F9", "F10", "F11", "F12", "F13"
+            ]
+          },
           "smell": { "type": "string" },
           "severity": { "enum": ["high", "medium", "low", "advisory", "critical"] },
           "handoffHint": { "type": "string" },
           "originFilteredOut": { "type": "boolean" },
           "varOriginUsed": { "enum": ["user-controlled", "system-injected", "unknown"] },
+          "composerIdentifier": {
+            "type": ["string", "null"],
+            "description": "v0.7+. Identifies the composer this finding belongs to (composer.path or first call-site for multi-call-site groups). null = single-composer / pre-v0.7 audit."
+          },
+          "workspaceIdentifier": {
+            "type": ["string", "null"],
+            "description": "v0.7+. Identifies the workspace this finding belongs to (workspace name). null = single-workspace / pre-v0.7 audit."
+          },
+          "consolidatedWith": {
+            "type": "array",
+            "description": "v0.7+. Finding IDs that this finding is consolidated with into a single remediation diff (used for F10+F11 (+F12-high) consolidation).",
+            "items": { "type": "string" }
+          },
+          "metadata": {
+            "type": "object",
+            "description": "v0.7+. Open metadata bag for finding-level signals that aren't load-bearing for severity (e.g., composerMultiplicityFlag).",
+            "additionalProperties": true
+          },
           "apiParameterContext": {
             "type": "object",
             "description": "v0.6+. Populated when F12 fires. Captures the API parameter separation analysis used by F12 API-parameter-aware detection.",
