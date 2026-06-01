@@ -338,5 +338,6 @@ Users can re-run via `:first-run-setup --regenerate-composer`. Behavior:
 
 - Schema: `plugins/vibe-prompt/schemas/composer.schema.json` — layer type enum + confidence fields.
 - Sibling reference: `composer-interview.md` — interactive interview workflow (used when auto-detection confidence is low).
-- Audit consumer: F12 detection reads `composer.json` to identify layer order; full critical severity requires `globalConfidence ≥ 0.7`.
+- Sibling reference: `composer-kinds.md` — v0.7+ composer topology classifier (single-composer / multi-composer / multi-call-site / shared-package). Stage 1b in first-run-setup/SKILL.md runs kind classification before per-composer layer tracing.
+- Audit consumer: F12 detection reads `composer.json` to identify layer order; full critical severity requires `globalConfidence ≥ 0.7`. v0.7+ iterates F12 per composer in `composers[]`.
 - Remediate consumer: Category A diffs target the composer file identified in `sourceFile`; placement uses layer boundaries.
