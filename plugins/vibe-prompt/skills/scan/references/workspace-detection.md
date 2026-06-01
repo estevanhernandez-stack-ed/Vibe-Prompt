@@ -11,7 +11,7 @@ The detector classifies every target app into one of four `workspaceKind` values
 | `single-workspace` | One `package.json` at the target root; no `workspaces` field; no nested `package.json` outside `node_modules/` | Flat `inventory.json` — v0.6 shape preserved |
 | `npm-workspaces` | Top-level `package.json` declares a `workspaces` array (or workspaces object with `packages`) | Per-workspace `inventory-<name>.json` files + top-level aggregator |
 | `nested-projects` | No top-level `workspaces` declaration BUT ≥2 nested `package.json` files outside `node_modules/` (e.g., `apps/<x>/package.json`, `packages/<y>/package.json`) | Per-workspace `inventory-<name>.json` files + top-level aggregator. **Requires user confirmation via friction trigger** on first detection |
-| `unknown` | No `package.json` anywhere (or pure-Python target with no JS workspaces concept) | Flat `inventory.json` — back-compat shape |
+| `unknown` | no `package.json` anywhere (or pure-Python target with no JS workspaces concept) | Flat `inventory.json` — back-compat shape |
 
 ## npm workspaces detection
 
