@@ -96,6 +96,46 @@ The detection is best-effort and may require the agent to read the actual conten
 - Penalizes instruction clarity (−1) per fired finding.
 - Rationale: a hardcoded model id buried in multiple call sites is an implicit instruction about which model's behavior to expect; when it drifts silently, the effective instruction changes without any signal.
 
+## F6-suspect-model — Model id not in known-models list (v0.7 revival)
+
+**Severity (default):** medium (degrades to high when context7 lookup confirms vendor's published list does not contain the id)
+**Detection method:** static lookup against `references/known-models.md` + optional context7 vendor lookup.
+
+**Why it's back.** v0.1 removed an early suspect-model sub-finding because the bundled list went stale fast and produced false positives that eroded audit trust. v0.7 revives it with three mitigations:
+- A last-updated stamp on `references/known-models.md` makes the staleness visible.
+- A confidence ladder elevates the finding ONLY when context7 confirms the id isn't in the vendor's published list (the ground truth that didn't exist in v0.1).
+- A per-app escape hatch via `audit.f6.modelIdExceptions[]` lets users acknowledge pre-release / vendor-internal ids without code changes.
+
+**Detection rule:**
+1. For each `inventory.modelIdentifiers[*]`, compare `value` (case-insensitive, suffix-stripped) against entries in `references/known-models.md`.
+2. If found → no F6-suspect-model finding (F6 consolidation finding may still fire on its own rules).
+3. If NOT found:
+   - Check `config.audit.f6.modelIdExceptions[]` — if `value` is in the array, skip F6-suspect-model for this id.
+   - Otherwise, fire F6-suspect-model.
+4. **Confidence ladder:**
+   - If context7 is reachable and a lookup confirms the id is NOT in the vendor's current published list → severity **high**; evidence: `{ lookupResult: "vendor-confirmed-not-published", contextSource: "context7" }`.
+   - If context7 is unavailable → severity **medium**; evidence: `{ lookupResult: "bundled-list-only", listLastUpdated: "<stamp from known-models.md>" }`.
+
+**Evidence:**
+- `evidence.modelValue` — the suspect model id
+- `evidence.occurrences[]` — every file + line where the id appears
+- `evidence.lookupResult` — `"bundled-list-only"` or `"vendor-confirmed-not-published"`
+- `evidence.listLastUpdated` — the bundled list's last-updated stamp (for staleness audit trail)
+- `evidence.confidence` — `"medium"` or `"high"`
+
+**Recommendation template:**
+> The model id `{modelValue}` does not appear in the bundled known-models list (last-updated {listLastUpdated}) and is not in your `audit.f6.modelIdExceptions` config array. {lookupResult-specific narrative}: if this is a real vendor-published id we missed, add it to `audit.f6.modelIdExceptions[]` to suppress this finding. If it's a typo (e.g., off-by-one version number), correct it at every occurrence. If it's a pre-release / vendor-internal id, document the choice and add to the exceptions list.
+
+**Score impact (v0.7):**
+- Penalizes instruction-clarity (−1) per fired finding.
+- Rationale: a model id we can't recognize is an implicit instruction we can't read — if it's a typo, the effective instruction is "use whatever the vendor's fallback resolves to."
+
+**Edge cases:**
+- A correctly-named brand-new model the bundled list hasn't been updated for. Mitigation: `audit.f6.modelIdExceptions[]` is the deliberate escape.
+- A vendor SDK that maps friendly names to ids (e.g., `gpt-4o-latest` → some date-stamped id). Add the alias to the bundled list or the exceptions array.
+
+**Friction trigger:** `f6-suspect-model-detected` (medium) — emitted on every fire so `/evolve` sees the cadence; positive when the user confirms a typo was caught, low when the user reports a false-positive (signals bundled-list update needed).
+
 ## F7 — Hybrid call sites
 
 **Severity (default):** medium
