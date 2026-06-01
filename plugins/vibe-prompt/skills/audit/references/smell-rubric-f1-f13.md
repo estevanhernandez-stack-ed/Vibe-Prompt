@@ -7,8 +7,16 @@ Each finding has: ID, Smell, Severity default, Detection rule (reads from invent
 ## F1 — Registry exists, isn't enforced
 
 **Severity (default):** high
-**Detection:** `inventory.registry.detected === true` AND `inventory.inlinePrompts.length > 0`.
-**Evidence:** every entry of `inlinePrompts`.
+**Detection (v0.7 — registry.kind aware):** `inventory.registry.detected === true` AND `inventory.inlinePrompts.length > 0` AND **`inventory.registry.kind ∈ { "prompt-content", "hybrid" }`** (or `kind` undefined for v0.6 back-compat).
+
+**Why the kind gate.** v0.7 added `registry.kind` to the inventory schema after the 626Labs cross-app probe surfaced a false-positive: a `modelRegistry` (task-id → model-id) was being treated as a prompt store. Inline `systemInstructions` aren't bypassing a model-routing or task-mapping registry — there's no prompt content in those registries to bypass. The gate distinguishes:
+- `registry.kind === "prompt-content"` → F1 fires (the registry stores prompts; bypassing it is the smell).
+- `registry.kind === "hybrid"` → F1 fires (hybrid contains prompt-content + other shapes; bypass still applies).
+- `registry.kind === "model-routing"` → F1 does NOT fire on this registry. F1b fires instead (no prompt-content registry detected).
+- `registry.kind === "task-mapping"` → F1 does NOT fire on this registry. F1b fires if inline sites are abundant.
+- `registry.kind` undefined / null → v0.6 fallback (F1 fires when `registry.detected` is true and inlines exist).
+
+**Evidence:** every entry of `inlinePrompts` plus `registry.kind` for context.
 **Recommendation template:**
 > Move each inline `systemInstruction` literal into the registry at `{registry.location}` with a stable id (e.g., `<feature>_<role>`). Call sites switch to the registry's fetch method ({inferred method name}). The hybrid sites (see F7) are the highest priority.
 
