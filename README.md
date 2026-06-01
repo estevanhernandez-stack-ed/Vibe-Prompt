@@ -21,6 +21,29 @@ Vibe-Prompt is the prompt-audit and behavioral-testing layer for vibe-coded apps
 - `/vibe-prompt` (bare) — state-aware router; reads inventory + audit + eval + grade + iterate + radar state plus pending remediation files and recommends the next move.
 - `/vibe-prompt:evolve-prompt` — L3 self-evolution. Reads session + friction logs across all seven commands and proposes improvements to the plugin itself. Never auto-applies.
 
+## What's new in v0.7
+
+Six additive capabilities in the "generalization completeness" theme. Closes the four structural gaps that surfaced when v0.6 was probed against multi-composer, multi-call-site, shared-package, and monorepo app shapes (626Labs, WeSeeYouAtTheMovies, Quiz Show). No breaking changes — v0.6 composer.json / inventory.json / audit.json / grade-result.json continue to validate against v0.7 schemas via additive shims.
+
+**`composers[]` array + four kinds.** v0.6 modeled one composer per app. v0.7 introduces a top-level `composers[]` array on composer.json with a `kind` enum: `single-composer` (Celestia3 `src/lib/gemini.ts`), `multi-composer` (626Labs `galaxyCore.ts` + `ChatController.ts`), `multi-call-site` (WeSeeYou — no canonical composer file; SDK calls scattered across N files inline; grouped by SDK + persona heuristic), and `shared-package` (Quiz Show `packages/ai/src/gemini/GeminiService.ts` referenced by multiple workspaces). `compositionShape` enum at the top level (`single` | `multi`) drives downstream branching. Each composer entry carries its own `layers[]`, `globalConfidence`, `regenerationSource`, and `apiParameterCompleteness`. Backward compat: v0.6 composer.json with top-level `layers[]` auto-promotes to `composers[0]` with `kind: "single-composer"`.
+
+**Workspace-awareness (npm-workspaces + nested-projects).** v0.6 walked the whole tree as a single inventory. v0.7's `:scan` detects four `workspaceKind` values (`single-workspace`, `npm-workspaces` via `workspaces` declaration, `nested-projects` via discovered nested package.json files, `unknown`). For monorepo kinds, `:scan` emits one per-workspace `inventory-<name>.json` plus a top-level `inventory.json` cross-referencing each workspace. Auto-detects exclude candidates matching `vibe-*/`, `*-main/`, `_ARCHIVE_*/` and friction-logs a recommendation when not in `config.scan.excludes`. `inventory.json` gains `workspaceKind`, `workspaces[]`, and `scanExcludes[]` fields (all optional; v0.6 inventories without them remain valid).
+
+**Category D migration templates (D-1 / D-2 / D-3).** v0.6's `:remediate` covered Category A (composer additions), B (contradiction removal), and C (defense addition). v0.7 adds three migration templates that close F1 / F4 / F6 / F7 with generated diffs:
+- **D-1 inline-to-registry** — F1 finding on inline systemInstruction at call site → generates registry entry + call-site replacement + import injection. Confidence 0.85. Stages by default; `--apply-inline-to-registry` opts in to auto-write at ≥0.90.
+- **D-2 typed-renderer** — F4 finding on registry-with-no-typed-renderer (raw `{{var}}` interpolation) → adds `requiredVars: string[]` per entry + `renderPrompt(id, vars)` helper that throws on missing var + call-site updates. Confidence 0.75. Stages by default; `--apply-typed-renderer` opts in.
+- **D-3 model-consolidation** — F6 finding with multiple hardcoded model IDs across files → generates `src/config/ai.ts` with `DEFAULT_MODEL` export + per-site replacement. Confidence 0.88. Auto-writes at top end; `--apply-model-consolidation` flag controls routing.
+
+For monorepo apps, D-3 emits per-workspace config files when model IDs differ across workspaces.
+
+**F12 severity-decoupling.** v0.6's F12 degraded severity from critical to high when composer-multiplicity was detected — conflating "multiple composers exist" with "this composer's detection is ambiguous." v0.7 decouples the two: F12 severity now degrades ONLY when `apiParameter` confidence is low on a layer, never because of composer multiplicity. Multi-composer apps with high apiParameter confidence keep critical severity per composer. The composer-multiplicity signal moves to `findings[].metadata.composerMultiplicityFlag` for context.
+
+**F6 suspect-model sub-finding.** Revives the F6 "model id not in known list" sub-case (was deferred in v0.4). Fires when a prompt references a model ID not in the bundled `known-models.md` list (e.g., `gemini-3.1-pro` in Quiz Show). Severity medium. Confidence high when context7 vendor lookup confirms not-in-published-list; medium when bundled-list-only. Suppressible via `config.audit.f6.modelIdExceptions`.
+
+**F1 registry-kind awareness.** Eliminates a 626Labs false-positive class. `:scan` now classifies each registry as `prompt-content`, `model-routing`, `task-mapping`, or `hybrid`. F1 (inline-prompt registry bypass) fires only when a `prompt-content` or `hybrid` registry exists — model-routing registries (e.g., 626Labs `config/modelRegistry.ts`) no longer trigger false F1 findings. F1b still fires when no prompt-content registry is detected at all.
+
+**Plus:** F12 absent-system-instruction sub-case (WeSeeYou badge-icon-generator pattern); F10+F11(+F12-high) consolidated-diff routing in `:remediate` (one Category C diff closes multiple findings on same call site); per-workspace composites in `:grade` (`appComposite.perWorkspace[<name>]` + per-workspace monotonic baseline regression); three new router state branches (`workspace-rescan-needed`, `workspace-grade-needed`, `category-d-pending-review`); 9 new friction triggers for the v0.7 detection gaps.
+
 ## What's new in v0.6
 
 Five additive capabilities in the "detection sharpness" theme. No breaking changes to v0.5 surface area.
@@ -110,17 +133,18 @@ Get a free API key at [Google AI Studio](https://aistudio.google.com/app/apikey)
 
 Keys are read from the environment only and never written to disk.
 
-## Smell rubric (v0.6, F1–F13)
+## Smell rubric (v0.7, F1–F13)
 
 | ID | Name | Severity | Static / Eval | Score impact |
 |---|---|---|---|---|
-| F1 | Inline-prompt registry bypass | high | static | schema −2 |
+| F1 | Inline-prompt registry bypass (prompt-content / hybrid registries only) | high | static | schema −2 |
 | F1b | Registry-schema mismatch | medium | static | schema −3 |
 | F2 | Voice contradiction | high | static | persona −3 |
 | F3 | Implicit model assumption | medium | static | clarity −2 |
 | F4 | Var drift | high | static | schema −2 |
 | F5 | Persona sprawl | low | static | persona −1 |
-| F6 | Hardcoded or unknown model | high | static | clarity −2 |
+| F6 | Hardcoded model id | high | static | clarity −2 |
+| F6-suspect-model | Model id not in known-models list | medium | static | clarity −2 |
 | F7 | Dead prompt code | medium | static | token −2 |
 | F9 | Date-handling prompt without temporal grounding | high | static | clarity −3, schema −1 |
 | F10 | User-input var without sanitization marker | high | static | injectionRes −4, clarity −1 |
@@ -128,7 +152,7 @@ Keys are read from the environment only and never written to disk.
 | F12 | User-var at or before system instruction | critical | static | injectionRes −6, persona −2 |
 | F13 | Implicit output format (structural cues + no declaration) | medium | static | schema −2, clarity −1 |
 
-F10-F12 also carry `handoffHint: "vibe-sec:audit"` for cross-plugin app-level review. F12 fires deterministically only when user-var and system-instruction layers share the same API parameter — when `apiParameter` is unknown, severity degrades to high per v0.5 fallback.
+F10-F12 carry `handoffHint: "vibe-sec:audit"` for cross-plugin app-level review. F1 now gates on `registry.kind` — only fires on `prompt-content` or `hybrid` registries; model-routing and task-mapping registries no longer trigger false F1 positives (closes the 626Labs `config/modelRegistry.ts` class). F12 severity degrades to high ONLY when `apiParameter` confidence is low — composer multiplicity no longer drags severity (v0.7 decoupling). F6-suspect-model fires on model IDs absent from the bundled known-models list; confidence high when context7 vendor lookup confirms not-in-published-list, medium when bundled-list-only.
 
 ## Stack coverage (v0.5)
 
