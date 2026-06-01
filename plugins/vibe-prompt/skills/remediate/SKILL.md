@@ -34,7 +34,7 @@ like `/vibe-sec:fix`, with structural-edit-aware staging.
 | `--apply-voice-frame-fixes` | OPTIONAL | v0.6+. Opt-in to auto-write Category B `voice-frame-rewrite` sub-category diffs. Without this flag, voice-frame diffs always stage even at ≥0.90 confidence. Independent of `--apply-contradictions`. |
 | `--auto-handoff-vibe-sec` | OPTIONAL | v0.6+. When F12 critical fires, invoke `/vibe-sec:audit` automatically via the Skill tool (scope: `user-input-boundary`). Default is the v0.5 banner-only behavior. Falls back to banner if vibe-sec is not installed. |
 | `--apply-inline-to-registry` | OPTIONAL | v0.7+. Opt-in to Category D-1 (F1 inline-to-registry migration). D-1 is per-call-site independent — each inline bypass site migrates independently. Without flag, D-1 diffs stage regardless of confidence. With flag, normal confidence routing applies (auto-write at ≥0.90). |
-| `--apply-typed-renderer` | OPTIONAL | v0.7+. Opt-in to Category D-2 (F4 typed-renderer migration). Without flag, D-2 diffs stage regardless of confidence. |
+| `--apply-typed-renderer` | OPTIONAL | v0.7+. Opt-in to Category D-2 (F4 typed-renderer migration). D-2 touches the registry interface + every interpolation call site. Without flag, D-2 diffs stage regardless of confidence. |
 | `--apply-model-consolidation` | OPTIONAL | v0.7+. Opt-in to Category D-3 (F6 model-consolidation migration). Without flag, D-3 diffs stage regardless of confidence. With flag, auto-write applies at ≥0.88 (D-3's confidence floor). |
 
 ## Workflow
