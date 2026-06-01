@@ -58,6 +58,27 @@ Load `vibe-prompt:guide`. Then walk the user through three captures.
 
 6. **Post-flight.** `session-logger` terminal entry.
 
+## composer.json emission shape (v0.7+)
+
+The emission shape depends on the kind classification from Stage 1b. The downstream consumers (`:audit`, `:remediate`, `:grade`) handle the two shapes per the v0.6/v0.7 back-compat contract:
+
+| Kind | `composers[]` length | Top-level `layers[]` | Top-level `sourceFile` | Notes |
+|---|---|---|---|---|
+| `single-composer` | 1 | written (mirrors `composers[0].layers`) | written (Celestia3 shape) | v0.6 back-compat shim — consumers can read either |
+| `multi-composer` | N (one per file) | omitted | omitted | each entry's `path` is the composer file string |
+| `multi-call-site` | M (one per persona/SDK cluster) | omitted | omitted | each entry's `path` is a string array of call sites |
+| `shared-package` | 1 | omitted | written (points at packages-rooted file) | the package file is the canonical composer |
+
+For every entry in `composers[]`:
+- `kind` matches the top-level classification (all entries within one composer.json share the same kind value)
+- `path` is `string` for `single-composer` / `multi-composer` / `shared-package`; `string[]` for `multi-call-site`
+- `layers[]` is the traced layer list specific to that composer
+- `globalConfidence` is the weighted average of that composer's per-layer confidences
+- `regenerationSource` mirrors the top-level value (`auto-detected` | `hybrid` | `manual`)
+- `apiParameterCompleteness` is the fraction (0.0 – 1.0) of that composer's layers whose `apiParameter` resolved to a non-null value
+
+**v0.6 back-compat read path.** Consumers that pre-date v0.7 read only top-level `layers[]` + `sourceFile`. v0.7 `single-composer` emissions preserve both fields so v0.6 consumers continue to work unmodified. `multi-composer` / `multi-call-site` / `shared-package` emissions intentionally omit top-level `layers[]` — v0.6 consumers will see no usable composer; v0.7-aware consumers iterate `composers[]`.
+
 ## Banner template
 
 ```
