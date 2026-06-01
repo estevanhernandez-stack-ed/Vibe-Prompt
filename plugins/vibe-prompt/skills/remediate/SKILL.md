@@ -200,6 +200,49 @@ Category D diffs do NOT consolidate — each finding emits its own diff even whe
 multiple findings target the same file. (F10+F11(+F12-high) consolidation in
 `references/consolidation-rules.md` is the only consolidation path.)
 
+### 3.5. Consolidation step (v0.7)
+
+This consolidation step runs AFTER per-finding diff generation (§3) and BEFORE
+routing by confidence (§4). The consolidation step folds clusters of findings
+that share the same call site into ONE consolidated Category C diff per
+`references/consolidation-rules.md`.
+
+**Trigger.** Two or more of {F10, F11, F12-high} fire on the **same prompt +
+same call site** (matched via `evidence.promptLocation`). Multi-composer apps
+also require matching `composerIdentifier` (different composers do NOT
+consolidate even when promptLocation strings collide).
+
+**Consolidation shape.**
+
+- F10 + F11 on same call site → ONE consolidated Category C diff. The diff
+  carries the F10 defense block (closes F10) + defense-in-depth phrases inside
+  the same paragraph (closes F11). The pending file's front-matter carries
+  `consolidatedFindingIds: ["F10-...", "F11-..."]`.
+- F10 + F11 + F12-high on same call site → ONE consolidated diff. Same shape
+  as F10+F11 PLUS a commented note inside the diff body explaining that the
+  F12-high composition restructure was deferred. `consolidatedFindingIds`
+  lists all three.
+- F10 on call site A + F11 on call site B → NO consolidation (different call sites). Two separate diffs emit, each tracking its own finding.
+- F10 + F11 + F12-critical → consolidation does NOT apply. F12-critical takes
+  the auto-handoff path (`--auto-handoff-vibe-sec` flag invokes vibe-sec) and
+  the Category C defense is NOT the right fix for F12-critical. F10/F11 may
+  still consolidate with each other; F12-critical handoff emits separately on
+  the same run-result.
+
+**Result file shape.** `remediate-result.json` populates a top-level
+`consolidatedDiffs[]` array. Each entry references the pending diff path,
+the cluster's `findingIds`, and a one-line rationale. See
+`remediate-result.schema.json` v0.7 extension for the field definition.
+
+**Friction trigger.** Each successful consolidation logs
+`consolidated-diff-closes-multiple-findings` (positive) per the friction
+catalog.
+
+The consolidation step ordering matters: consolidation runs BEFORE routing so
+the single consolidated diff carries the cluster's weighted confidence (the
+mean of the cluster's per-finding confidences, weighted by diff-impact). The
+routing decision then applies to ONE diff instead of multiple.
+
 ### 4. Route by confidence
 
 Apply the routing thresholds (override-aware):
