@@ -9,18 +9,56 @@ The audit SKILL renders findings into a dated markdown file at `docs/vibe-prompt
 **Scope:** every LLM prompt site in {targetApp.stack joined with " + "}. Static read only — no prompts run.
 **Verdict:** {one-sentence headline derived from highest-severity findings}.
 
+{if composer.composers is present and composers.length > 1}
+## Multi-composer summary (v0.7)
+
+This app composes prompts in multiple places. Findings below are tracked per composer; each row in the headline table tags its `composerIdentifier` so the same smell category on different composers is reviewed independently.
+
+| Composer | Kind | Path | API parameter completeness | Global confidence |
+|---|---|---|---|---|
+{for each entry in composer.composers}
+| {entry.path or "<group>"} | `{entry.kind}` | {entry.path joined with ", " if string array, else entry.path} | {entry.apiParameterCompleteness} | {entry.globalConfidence} |
+
+**Composition shape:** `{composer.compositionShape}`. Findings tagged with `composerIdentifier` reference the composer's `path` (or first path for `multi-call-site` groups).
+{end if}
+
+{if inventory.workspaces is present and workspaces.length > 0}
+## Multi-workspace summary (v0.7)
+
+This app is a `{inventory.workspaceKind}` monorepo. Findings below are tagged with `workspaceIdentifier` so each workspace can be reviewed against its own per-workspace composite.
+
+| Workspace | Path | Inventory file |
+|---|---|---|
+{for each workspace in inventory.workspaces}
+| `{workspace.name}` | {workspace.path} | {workspace.inventoryFile} |
+{end if}
+
 ## Headline findings
 
-| # | Smell | Severity | Where |
-|---|---|---|---|
+| # | Smell | Severity | Where | Composer | Workspace |
+|---|---|---|---|---|---|
 {for each finding, in severity order then ID order}
-| {finding.id} | {finding.smell} | **{Severity}** | {summary of evidence locations} |
+| {finding.id} | {finding.smell} | **{Severity}** | {summary of evidence locations} | {finding.composerIdentifier or "—"} | {finding.workspaceIdentifier or "—"} |
+
+{if any finding has consolidatedWith populated}
+**Consolidated diffs (v0.7).** Some findings share a consolidated Category C diff — F10+F11(+F12-high) on the same call site collapse into one edit. See the consolidatedDiffs section in `remediate-result.json` or the per-finding "Consolidated with" note below.
+{end if}
 
 ---
 
 {for each finding, in same order}
 
 ## {finding.id} — {finding.smell} ({Severity})
+
+{if finding.composerIdentifier is present}
+**Composer:** `{finding.composerIdentifier}` (kind: `{lookup composer.composers[].kind by path}`).
+{end if}
+{if finding.workspaceIdentifier is present}
+**Workspace:** `{finding.workspaceIdentifier}`.
+{end if}
+{if finding.consolidatedWith is present and non-empty}
+**Consolidated with:** {finding.consolidatedWith joined with ", "} — fixed together in one Category C diff. See `remediate-result.consolidatedDiffs[]`.
+{end if}
 
 **Evidence.** {prose render of evidence; cite file:line for each entry}
 
@@ -81,6 +119,18 @@ Run `/vibe-prompt:grade` to apply these overrides.
 - **Score indicator helper** — `indicator(n)`: returns ✓ if n ≥ 9, · if 5 ≤ n ≤ 8, ⚠ if n ≤ 4. Apply to every score cell in the Per-prompt scores table.
 - The Per-prompt scores section is omitted if `audit.auditGrade` is absent (e.g., a v0.2-era state file with no scoring data).
 - **InjectionRes column** added in v0.4. Omit for state files produced by v0.3 or earlier (dimension was not scored). If `prompt.dimensions.injectionResistance` is absent, render `—` in that cell.
+
+## F6-suspect-model render template (v0.7)
+
+Use this when `F6-suspect-model` fires (model id referenced in prompt is not in the bundled `known-models.md` list AND not in `config.audit.f6.modelIdExceptions`).
+
+### F6-suspect-model — Suspect model identifier ({Severity})
+
+**Evidence.** `{evidence.promptId or evidence.callSitePath}` at `{evidence.location}` references model id `{evidence.suspectModelId}`. Lookup result: {evidence.lookupSource — "bundled known-models.md" or "context7 vendor query"}. {if evidence.lookupConfidence is "high": "Vendor list confirmed the id is not in the published model catalog — likely typo or fabricated identifier."}{if evidence.lookupConfidence is "medium": "Bundled known-models.md does not list this id; context7 lookup was unavailable. May be a real recently-released model the bundled list hasn't caught up to."}
+
+**Why it matters.** A suspect model id either (a) silently falls back to a default in the SDK (wasting cost on a model you didn't intend to call) or (b) returns a vendor error at runtime (the call fails in production). Typos in model ids are a common failure mode that static analysis catches cheaply.
+
+**Recommended fix.** Verify the id with the vendor's current model catalog. If the id is real but new, add it to `config.audit.f6.modelIdExceptions` (string array) so F6 stops firing on it. If the id is a typo, fix it at the source — search the repo for `{evidence.suspectModelId}` to find all occurrences. If the model is internal/private, add it to the exceptions array.
 
 ## F9-F12 finding render templates
 
