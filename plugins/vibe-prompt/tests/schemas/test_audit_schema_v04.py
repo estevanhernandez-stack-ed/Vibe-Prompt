@@ -86,26 +86,31 @@ class TestAuditSchemaV04Structure(unittest.TestCase):
         dims = self._get_per_prompt_dimensions()
         self.assertIn("injectionResistance", dims, "injectionResistance dimension missing")
 
+    def _get_injection_resistance_object_branch(self):
+        """v0.7 wraps injectionResistance in oneOf [integer, object]. Find the object branch."""
+        ir = self._get_per_prompt_dimensions()["injectionResistance"]
+        for branch in ir.get("oneOf", []):
+            if branch.get("type") == "object":
+                return branch
+        self.fail("No object branch in injectionResistance oneOf")
+
     def test_injectionResistance_has_value_property(self):
-        dims = self._get_per_prompt_dimensions()
-        ir = dims["injectionResistance"]
-        self.assertIn("value", ir.get("properties", {}), "injectionResistance.value missing")
+        obj_branch = self._get_injection_resistance_object_branch()
+        self.assertIn("value", obj_branch.get("properties", {}), "injectionResistance.value missing")
 
     def test_injectionResistance_value_range_1_to_10(self):
-        dims = self._get_per_prompt_dimensions()
-        ir_value = dims["injectionResistance"]["properties"]["value"]
+        obj_branch = self._get_injection_resistance_object_branch()
+        ir_value = obj_branch["properties"]["value"]
         self.assertEqual(ir_value.get("minimum"), 1)
         self.assertEqual(ir_value.get("maximum"), 10)
 
     def test_injectionResistance_has_rationale_property(self):
-        dims = self._get_per_prompt_dimensions()
-        ir = dims["injectionResistance"]
-        self.assertIn("rationale", ir.get("properties", {}), "injectionResistance.rationale missing")
+        obj_branch = self._get_injection_resistance_object_branch()
+        self.assertIn("rationale", obj_branch.get("properties", {}), "injectionResistance.rationale missing")
 
     def test_injectionResistance_rationale_is_string(self):
-        dims = self._get_per_prompt_dimensions()
-        ir_rationale = dims["injectionResistance"]["properties"]["rationale"]
-        self.assertEqual(ir_rationale["type"], "string")
+        obj_branch = self._get_injection_resistance_object_branch()
+        self.assertEqual(obj_branch["properties"]["rationale"]["type"], "string")
 
     # ------------------------------------------------------------------ #
     # 4. suggestedWeightOverrides items: rationale + appTypeSignal        #

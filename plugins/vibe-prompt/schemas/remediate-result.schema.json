@@ -9,8 +9,8 @@
         "findingId": { "type": "string" },
         "findingCategory": { "enum": ["A", "B", "C", "D-1", "D-2", "D-3"] },
         "subCategory": {
-          "type": "string",
-          "description": "v0.6+. Sub-category distinguishing fix variants. For Category B: `banned-phrase-removal` (v0.5 default) vs `voice-frame-rewrite` (v0.6 voice-frame extension)."
+          "type": ["string", "null"],
+          "description": "v0.6+. Sub-category distinguishing fix variants. For Category B: `banned-phrase-removal` (v0.5 default) vs `voice-frame-rewrite` (v0.6 voice-frame extension). v0.6 emits explicit null for diffs without a sub-category (e.g., Category C); back-compat preserved."
         },
         "migrationKind": {
           "enum": [
@@ -35,6 +35,16 @@
         "postApplyRecommendation": { "type": "string" },
         "versionBumpRequired": { "type": "boolean" },
         "suggestedVersion": { "type": "string" }
+      }
+    },
+    "inlineOnlySentinel": {
+      "type": "object",
+      "description": "v0.5/v0.6 back-compat shape for inlineOnlyDiffs[] — sentinel rows that record a finding was acknowledged as inline-only with no actionable diff. Only findingId + null findingCategory + postApplyRecommendation are required; confidence + targetFile are intentionally absent on sentinels.",
+      "required": ["findingId", "findingCategory", "postApplyRecommendation"],
+      "properties": {
+        "findingId": { "type": "string" },
+        "findingCategory": { "type": "null" },
+        "postApplyRecommendation": { "type": "string" }
       }
     },
     "f12Handoff": {
@@ -90,13 +100,18 @@
     },
     "inlineOnlyDiffs": {
       "type": "array",
-      "items": { "$ref": "#/$defs/diff" }
+      "items": {
+        "oneOf": [
+          { "$ref": "#/$defs/diff" },
+          { "$ref": "#/$defs/inlineOnlySentinel" }
+        ]
+      }
     },
     "f12HandoffsEmitted": {
       "type": "array",
       "items": { "$ref": "#/$defs/f12Handoff" }
     },
-    "backupBatchPath": { "type": "string" },
+    "backupBatchPath": { "type": ["string", "null"] },
     "flags": {
       "type": "object",
       "properties": {

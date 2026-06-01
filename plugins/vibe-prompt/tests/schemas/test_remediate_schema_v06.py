@@ -47,9 +47,14 @@ class TestRemediateV06SubCategory(unittest.TestCase):
         diff_props = self.schema["$defs"]["diff"]["properties"]
         self.assertIn("subCategory", diff_props)
 
-    def test_subCategory_is_string(self):
+    def test_subCategory_accepts_string(self):
+        """v0.7 widened type to [string, null] for v0.6 back-compat; string is still valid."""
         diff_props = self.schema["$defs"]["diff"]["properties"]
-        self.assertEqual(diff_props["subCategory"]["type"], "string")
+        sub_cat_type = diff_props["subCategory"]["type"]
+        if isinstance(sub_cat_type, list):
+            self.assertIn("string", sub_cat_type)
+        else:
+            self.assertEqual(sub_cat_type, "string")
 
     def test_subCategory_is_optional(self):
         required = self.schema["$defs"]["diff"].get("required", [])
