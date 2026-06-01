@@ -232,3 +232,50 @@ token efficiency) all emit inline-only recommendations in v0.5. Their fix shapes
 either app-architecture-level (F1, F1b, F5) or require user-domain knowledge
 (F4 schema validation, F6 model decision) that confidence-routed diff generation
 can't safely own at this version. Deferred to v0.6+ scope.
+
+---
+
+## Category D — Migration templates (v0.7)
+
+v0.7 closes the audit→fix gap for F1, F4, and F6 by adding **Category D** —
+mechanical refactors that touch architecture (registry shape, helper signatures,
+shared config files) instead of prompt content. Three sub-categories ship:
+
+| Sub-category | Finding | migrationKind | Confidence | Routing default | Opt-in flag |
+|---|---|---|---|---|---|
+| D-1 inline-to-registry | F1 | `D-1-inline-to-registry` | 0.85 | stage | `--apply-inline-to-registry` |
+| D-2 typed-renderer | F4 | `D-2-typed-renderer` | 0.75 | stage | `--apply-typed-renderer` |
+| D-3 model-consolidation | F6 | `D-3-model-consolidation` | 0.88 | auto-write at ≥0.88 with flag | `--apply-model-consolidation` |
+
+All three default to **stage** when the opt-in flag is absent — even at high
+confidence — because the diffs touch architecture surfaces. With the flag,
+normal confidence routing applies (auto-write at ≥0.90 for D-1/D-2; auto-write
+at ≥0.88 for D-3, since 0.88 is D-3's confidence floor).
+
+Diff templates, detection triggers, and full per-sub-category routing live in
+`references/migration-templates.md`. Each diff carries `findingCategory: "D-1"`,
+`"D-2"`, or `"D-3"` plus a `migrationKind` enum value per
+`pending-fix.schema.json` v0.7 extension.
+
+### Category D-1 — inline-to-registry
+
+**Trigger:** F1 finding on inline `systemInstruction` literal at a call site.
+**Touches:** TWO files (registry + call-site). **Voice-risk:** 0.95 (mechanical;
+literal preserved verbatim). **Per-call-site independent** — multiple D-1 diffs
+may exist for the same finding-id list when the audit detects multiple inline
+bypass sites; each migrates independently.
+
+### Category D-2 — typed-renderer
+
+**Trigger:** F4 finding on a registry that uses raw `{{var}}` interpolation
+without a typed renderer. **Touches:** THREE+ files (registry interface + new
+helper + each interpolation call site). **Voice-risk:** 0.90.
+
+### Category D-3 — model-consolidation
+
+**Trigger:** F6 finding with N ≥ 3 occurrences of the same hardcoded model ID
+across multiple files. Below N=3 stays inline-only. **Touches:** N+1 files (new
+`src/config/ai.ts` + every occurrence). **Voice-risk:** 1.0 (model IDs are pure
+config; no prompt-content surface). **Monorepo:** emits per-workspace config
+files when models differ across workspaces; single shared config when models
+match.

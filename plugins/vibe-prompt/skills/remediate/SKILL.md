@@ -7,8 +7,9 @@ description: This skill should be used when the user says "/vibe-prompt:remediat
 
 Load `vibe-prompt:guide` first. Then load `references/fix-categories.md`,
 `references/confidence-rubric.md`, `references/delimiter-naming.md`,
-`references/diff-patch-helpers.md`, `references/rollback-workflow.md`, and
-(v0.6+) `references/voice-frame-detection.md`.
+`references/diff-patch-helpers.md`, `references/rollback-workflow.md`,
+(v0.6+) `references/voice-frame-detection.md`, and (v0.7+)
+`references/migration-templates.md` + `references/consolidation-rules.md`.
 
 This is the sixth step-command in the vibe-prompt pipeline — it closes the gap between
 "the audit told us what's wrong" and "the prompts are actually fixed." Confidence-routed
@@ -32,6 +33,9 @@ like `/vibe-sec:fix`, with structural-edit-aware staging.
 | `--apply-contradictions` | OPTIONAL | Opt-in to auto-write Category B diffs (voice contradictions). |
 | `--apply-voice-frame-fixes` | OPTIONAL | v0.6+. Opt-in to auto-write Category B `voice-frame-rewrite` sub-category diffs. Without this flag, voice-frame diffs always stage even at ≥0.90 confidence. Independent of `--apply-contradictions`. |
 | `--auto-handoff-vibe-sec` | OPTIONAL | v0.6+. When F12 critical fires, invoke `/vibe-sec:audit` automatically via the Skill tool (scope: `user-input-boundary`). Default is the v0.5 banner-only behavior. Falls back to banner if vibe-sec is not installed. |
+| `--apply-inline-to-registry` | OPTIONAL | v0.7+. Opt-in to Category D-1 (F1 inline-to-registry migration). D-1 is per-call-site independent — each inline bypass site migrates independently. Without flag, D-1 diffs stage regardless of confidence. With flag, normal confidence routing applies (auto-write at ≥0.90). |
+| `--apply-typed-renderer` | OPTIONAL | v0.7+. Opt-in to Category D-2 (F4 typed-renderer migration). Without flag, D-2 diffs stage regardless of confidence. |
+| `--apply-model-consolidation` | OPTIONAL | v0.7+. Opt-in to Category D-3 (F6 model-consolidation migration). Without flag, D-3 diffs stage regardless of confidence. With flag, auto-write applies at ≥0.88 (D-3's confidence floor). |
 
 ## Workflow
 
@@ -56,8 +60,9 @@ Walk `audit.json.findings`. Map each finding to a fix category per
 - **Category A — Composer-level additions** → F9 findings
 - **Category B — Contradiction removal** → F2 findings
 - **Category C — Defense addition** → F10 and F11 findings; F12 high-severity (confidence-degraded) fallback
+- **Category D — Migration templates (v0.7)** → F1 (D-1 inline-to-registry), F4 (D-2 typed-renderer), F6 (D-3 model-consolidation). See `references/migration-templates.md` for diff templates + per-sub-category confidence and routing.
 - **F12 critical** → handoff banner only, NOT proposed (see §F12 handoff below)
-- **Other findings (F1, F1b, F3, F4, F5, F6, F7)** → inline recommendation only in v0.5 (deferred to future versions)
+- **Other findings (F1b, F3, F5, F7)** → inline recommendation only (deferred to future versions)
 
 Skip findings already flagged `originFilteredOut: true` in the audit (system-injected
 vars; not user-controlled — no Category C target).
@@ -160,6 +165,41 @@ For each grouped finding:
    locate-confidence (0.30) + diff-shape (0.25) + voice-risk (0.20) + schema-impact (0.15)
    + version-bump (0.10). Weighted-average to a single 0-1 confidence.
 
+**v0.7 Category D generation.** For F1 / F4 / F6 findings, generate a migration
+diff per `references/migration-templates.md`:
+
+- **D-1 inline-to-registry (F1).** Locate every inline systemInstruction literal
+  at call sites via `audit.findings[].evidence.callSiteLocations`. For each call
+  site, generate a two-file diff: (1) registry entry append with auto-derived
+  id, (2) call-site replacement with `getPrompt(id)` invocation + import
+  injection if absent. Each call site emits its OWN D-1 diff — per-call-site
+  independent. Multiple D-1 diffs may exist for the same finding-id list.
+  Confidence default 0.85; floors at 0.70 when registry file isn't detected.
+  Emits `migrationKind: "D-1-inline-to-registry"` and `findingCategory: "D-1"`.
+
+- **D-2 typed-renderer (F4).** Locate the registry file via inventory.json.
+  Generate a three-file diff: (1) extend each registry entry with
+  `requiredVars: string[]` derived from `{{var}}` markers in content, (2) emit
+  `renderPrompt(id, vars)` helper at `src/lib/prompts/render.ts` (or
+  app-conventional fallback path) that throws on missing var, (3) update every
+  interpolation call site to use the renderer. Confidence default 0.75. Emits
+  `migrationKind: "D-2-typed-renderer"` and `findingCategory: "D-2"`.
+
+- **D-3 model-consolidation (F6).** Locate every occurrence of the duplicated
+  model id via `audit.findings[].evidence.occurrences`. Below threshold N=3,
+  D-3 does NOT fire (stays inline-only). At N≥3, generate an (N+1)-file diff:
+  (1) new `src/config/ai.ts` exporting `DEFAULT_MODEL = "<model-id>"`, (2) each
+  occurrence replaced with `DEFAULT_MODEL` import. For monorepo apps
+  (workspaceKind `npm-workspaces` / `nested-projects`): emit per-workspace
+  config files when models differ across workspaces; emit a single shared
+  config at `packages/config/ai.ts` when models match across workspaces.
+  Confidence default 0.88; voice-risk 1.0. Emits
+  `migrationKind: "D-3-model-consolidation"` and `findingCategory: "D-3"`.
+
+Category D diffs do NOT consolidate — each finding emits its own diff even when
+multiple findings target the same file. (F10+F11(+F12-high) consolidation in
+`references/consolidation-rules.md` is the only consolidation path.)
+
 ### 4. Route by confidence
 
 Apply the routing thresholds (override-aware):
@@ -173,9 +213,24 @@ Apply the routing thresholds (override-aware):
 **Category B override:** Category B always stages by default regardless of confidence.
 Auto-write requires `--apply-contradictions` opt-in (voice-drift risk is non-trivial).
 
+**Category D override (v0.7):** Category D-1, D-2, D-3 ALWAYS stage by default
+regardless of confidence — even at ≥0.90 — because the diffs touch architecture
+surfaces (registry shape, helper signatures, shared config). Auto-write requires
+the corresponding opt-in flag:
+
+| Sub-category | Flag | Threshold once flagged |
+|---|---|---|
+| D-1 inline-to-registry | `--apply-inline-to-registry` | ≥0.90 (normal) |
+| D-2 typed-renderer | `--apply-typed-renderer` | ≥0.90 (normal) |
+| D-3 model-consolidation | `--apply-model-consolidation` | ≥0.88 (D-3's confidence floor) |
+
+The three Category D flags are independent — passing one does NOT enable
+another.
+
 **`--auto-apply` semantics:** in CI mode, every Category A + C diff at ≥0.90 writes
 without user gate. Category B still stages unless `--apply-contradictions` is ALSO
-passed.
+passed. Category D still stages unless the corresponding `--apply-*` flag is
+ALSO passed.
 
 ### 5. Present plan + user gate
 
