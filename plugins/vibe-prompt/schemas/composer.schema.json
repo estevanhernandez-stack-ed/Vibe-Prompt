@@ -2,13 +2,90 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "vibe-prompt/eval-composer",
   "type": "object",
-  "required": ["version", "kind", "layers"],
+  "required": ["version", "kind"],
   "properties": {
     "version": { "type": "string", "const": "0.1" },
     "kind": { "enum": ["identity", "stacked"] },
     "sourceFile": { "type": ["string", "null"] },
     "globalConfidence": { "type": "number", "minimum": 0, "maximum": 1 },
     "regenerationSource": { "enum": ["manual", "auto-detected", "hybrid"] },
+    "compositionShape": {
+      "enum": ["single", "multi"],
+      "description": "v0.7+. Whether this app has one composer (single) or multiple composers / call sites (multi). When `multi`, `composers[]` is the source of truth; when `single`, top-level `layers[]` is the source of truth and `composers[]` may be a back-compat shim of length 1."
+    },
+    "composers": {
+      "type": "array",
+      "description": "v0.7+. Per-composer entries. Used for multi-composer / multi-call-site / shared-package shapes. For single-composer apps, this may be a length-1 shim that mirrors top-level layers[].",
+      "items": {
+        "type": "object",
+        "required": ["kind", "path", "layers"],
+        "properties": {
+          "kind": {
+            "enum": [
+              "single-composer",
+              "multi-composer",
+              "multi-call-site",
+              "shared-package"
+            ],
+            "description": "Composer topology kind. single-composer = one composer file (Celestia3 pattern). multi-composer = two or more distinct composer files (626Labs pattern). multi-call-site = no canonical composer; SDK calls scattered inline (WeSeeYou pattern). shared-package = composer in a packages/<name>/ directory referenced across workspaces (Quiz Show pattern)."
+          },
+          "path": {
+            "oneOf": [
+              { "type": "string" },
+              { "type": "array", "items": { "type": "string" } }
+            ],
+            "description": "Composer location. String for single-file kinds; array of call-site paths for multi-call-site groups."
+          },
+          "globalConfidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "regenerationSource": { "enum": ["manual", "auto-detected", "hybrid"] },
+          "apiParameterCompleteness": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Fraction of this composer's layers that have a detected apiParameter (non-null)."
+          },
+          "layers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "type", "text"],
+              "properties": {
+                "id": { "type": "string" },
+                "type": {
+                  "enum": [
+                    "literal",
+                    "directive-field",
+                    "global-directive",
+                    "knowledge-injection",
+                    "task-instruction",
+                    "conditional"
+                  ]
+                },
+                "text": { "type": "string" },
+                "condition": { "type": ["string", "null"] },
+                "order": { "type": "integer" },
+                "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+                "apiParameter": {
+                  "enum": [
+                    "systemInstruction",
+                    "contents",
+                    "messages",
+                    "instructions",
+                    "prompt",
+                    null
+                  ]
+                },
+                "apiParameterConfidence": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "layers": {
       "type": "array",
       "items": {
@@ -51,5 +128,10 @@
         }
       }
     }
-  }
+  },
+  "anyOf": [
+    { "required": ["layers"] },
+    { "required": ["composers"] }
+  ],
+  "description": "vibe-prompt composer.json schema. v0.7 introduces composers[] for multi-composer apps; v0.6 single-composer shape (top-level layers[]) remains valid. At least one of layers / composers must be present."
 }
