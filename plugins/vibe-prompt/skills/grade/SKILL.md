@@ -49,7 +49,28 @@ For each prompt in `audit.json.auditGrade.perPrompt`:
   in the banner.
 - Compute per-prompt composite per `references/composite-formula.md`.
 
-Compute app composite as the average of per-prompt composites across the full inventory.
+### 2a. Compute app composite — per-workspace partition (v0.7+)
+
+Inspect the audit findings for `workspaceIdentifier` fields (added in v0.7):
+
+- **Multi-workspace audit** (at least one finding carries a non-null `workspaceIdentifier`):
+  - Partition the audit findings — and the prompts they reference — by `workspaceIdentifier`,
+    grouping findings + prompts into per-workspace buckets.
+  - For each workspace bucket, compute its per-workspace composite as the average of the
+    per-prompt composites scoped to that workspace.
+  - Emit `appComposite.perWorkspace[<workspaceName>]` as a number for each workspace with at
+    least one finding-bearing prompt.
+  - Workspaces with zero findings (or whose prompts produced no composite) get
+    `perWorkspace[<workspaceName>] = null` AND their name appended to
+    `appComposite.workspacesWithNoFindings[]`.
+  - Compute `appComposite.aggregate` = arithmetic mean of all non-null per-workspace composites.
+    `aggregate` preserves v0.6 single-number semantics for any back-compat consumer that reads
+    `appComposite` and expects one number — they'll read `aggregate` going forward.
+- **Single-workspace audit** (no finding carries a `workspaceIdentifier`, OR all values are
+  null): emit `appComposite` as a flat number (v0.6 shape — preserved via the schema oneOf
+  branch). Do NOT emit `perWorkspace` / `aggregate` / `workspacesWithNoFindings` keys in this
+  case; downstream consumers continue to read `appComposite` as a single integer composite
+  exactly as in v0.6. This is the back-compat path.
 
 ### 3. Compare vs monotonic baseline
 

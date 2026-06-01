@@ -29,6 +29,34 @@ Weights must sum to 1.0 (or auto-normalized if not).
 
 Average of per-prompt composites across the inventory.
 
+## App composite — per-workspace (v0.7+)
+
+When the audit emits findings tagged with `workspaceIdentifier` (multi-workspace mode),
+`:grade` partitions findings by workspace and computes one composite per workspace:
+
+```
+perWorkspace[name] = mean(per-prompt composites whose prompts produced findings under workspaceIdentifier=name)
+aggregate          = mean(all non-null perWorkspace values)
+```
+
+`appComposite.perWorkspace[<name>]` exposes the per-workspace number; `appComposite.aggregate`
+exposes the cross-workspace mean (replaces the v0.6 single number for multi-workspace apps).
+Workspaces with zero findings are emitted as `perWorkspace[<name>] = null` AND surfaced
+under `appComposite.workspacesWithNoFindings[]` so downstream tools can flag empty workspaces
+explicitly.
+
+### Back-compat: single-workspace apps preserve v0.6 flat-number shape
+
+For single-workspace audits (no `workspaceIdentifier` on findings, or all values null), the
+v0.7 `:grade` emits `appComposite` as a flat number — exactly the v0.6 shape. The schema's
+`oneOf` branch keeps both shapes valid; downstream consumers reading v0.6 grade-result.json
+files continue to work without changes.
+
+| Audit shape | `appComposite` emission |
+|---|---|
+| Single-workspace (v0.6 or v0.7 single-workspace mode) | Flat integer 1-10 — back-compat path |
+| Multi-workspace (v0.7+) | Object: `{ perWorkspace, aggregate, workspacesWithNoFindings }` |
+
 ## Agent-suggested overrides
 
 When the plugin detects a dimension is brand-load-bearing for the app, it proactively proposes an
