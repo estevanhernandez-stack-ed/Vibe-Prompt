@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.1] — 2026-06-09
+
+Manifest-location fix. No behavior or schema changes.
+
+### Fixed
+
+- Relocate plugin manifest to `.claude-plugin/` per Claude Code convention. Claude Code's loader only recognizes `<plugin-dir>/.claude-plugin/plugin.json`; the root-level `plugins/vibe-prompt/plugin.json` was ignored, so stable installs previously loaded in auto-discovery degrade mode without version/description metadata.
+
 ## [0.7.0] — 2026-06-01
 
 Six additive capabilities organized around the "generalization completeness" theme. Closes the four structural gaps that surfaced when v0.6 was probed across multi-composer / multi-call-site / shared-package / monorepo app shapes (626Labs, WeSeeYouAtTheMovies, Quiz Show). No breaking changes to v0.6 commands, schemas, or state files.
