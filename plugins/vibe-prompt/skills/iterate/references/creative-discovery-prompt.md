@@ -1,7 +1,8 @@
 # Creative discovery prompt — iterate
 
-Dispatched via Agent tool with model="claude-haiku-4-5" (cheap; creative-divergent doesn't need
-top-tier reasoning) and temperature=0.9 (divergent).
+Dispatched via the Agent tool at **tier: `creative-divergent`** — brainstorm/ideation where breadth
+beats rigor, so it routes to the cheap/fast tier (the session maps tier→model; no model ID pinned here).
+Temperature=0.9 (divergent).
 
 ## Template
 
@@ -55,7 +56,7 @@ Avoid suggestions that:
 
 | Parameter | Value | Reason |
 |---|---|---|
-| model | claude-haiku-4-5 | Cost-efficient for one-off creative call; top-tier reasoning not needed for brainstorm |
+| tier | creative-divergent | Brainstorm/ideation — breadth beats rigor; the session maps tier→model (cheap/fast), no model ID pinned |
 | temperature | 0.9 | Divergent — we want creative suggestions, not the most obvious answer |
 | max_tokens | 2048 | Enough for 5 well-formed suggestions; shouldn't need more |
 
@@ -72,6 +73,6 @@ If invalid (schema mismatch, malformed JSON, wrong array shape):
 
 ## Cost note
 
-One Agent call at haiku tier ≈ $0.01-0.03 total (input + output tokens combined at haiku pricing).
+One Agent call at the creative-divergent (cheap/fast) tier ≈ $0.01-0.03 total (input + output tokens combined at that tier's pricing).
 This is the full per-run cost for `:iterate`. No vendor API key required — uses the in-session
 model budget.

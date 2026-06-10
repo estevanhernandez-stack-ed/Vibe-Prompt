@@ -31,7 +31,7 @@ Load `vibe-prompt:guide` first. Then load `references/composer-mimic.md`, `refer
    - Read inventory.json, config, composer, agent — validate against schemas. Abort with a clear message on any schema failure.
    - Verify required env vars are set per config's `vendors`. Abort with a clear message if missing.
 
-2. **Synthesize/load fixtures.** For each prompt in inventory, per `references/fixture-synthesis.md`. Cache the result in memory.
+2. **Synthesize/load fixtures.** For each prompt in inventory, per `references/fixture-synthesis.md`. Cache the result in memory. **Dispatch tier:** `bulk` — when a fixture isn't user-provided, synthesis fans out one subagent per prompt to draft test inputs from a tight spec (volume execution, not verdict work).
 
 3. **Compose prompts.** For each (prompt, fixture) pair, apply `references/composer-mimic.md` to produce the composed system prompt + user content.
 
@@ -42,6 +42,7 @@ Load `vibe-prompt:guide` first. Then load `references/composer-mimic.md`, `refer
    - Call baseline via `InSessionAgentClient` (drift mode only).
    - Apply mechanical comparator per `references/mechanical-comparator.md`. Run all checks in order: hard-fail → both-failed → schema-shape → **value-type-drift** (v0.4 new: fires when key is present but value type differs between prod/baseline or deviates from OUTPUT_SCHEMA declared type; includes value-type-drift-both variant; positioned between schema-shape and length-delta per the comparator reference) → length-delta → token-delta → empty.
    - **LLM-judge with Swap-and-Discard** per `references/llm-judge-prompt.md` and `references/swap-and-discard.md` (unless `--no-judge`):
+     - **Dispatch tier:** `judgment` — both Swap-and-Discard judge runs are verdict work; the judge's calibrated drift comparison IS the deliverable, so it stays on the session model and never downgrades.
      - Run 1 (original order): dispatch judge with prod as Output A, baseline as Output B. Capture judgment (SWRS shape: strengths_A, weaknesses_A, strengths_B, weaknesses_B, reasoning, scores_A, scores_B, driftFindings).
      - Run 2 (swapped order): dispatch judge with baseline as Output A, prod as Output B. Capture judgment. Skip if `--no-swap` flag set.
      - Compare: if the judge favors the same POSITION in both runs (position-tied) → discard as position-bias artifact; set `swapAndDiscard.tiedAndDiscarded = true`; do not include drift findings for this pair; increment tie count. If the judge favors the same UNDERLYING CONTENT in both runs (content-consistent) → accept findings; set `swapAndDiscard.tiedAndDiscarded = false`; average `scores_A` and `scores_B` across both runs for the final per-dimension scores.

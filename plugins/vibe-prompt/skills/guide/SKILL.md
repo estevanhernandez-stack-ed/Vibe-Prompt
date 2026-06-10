@@ -44,6 +44,12 @@ Detect the stack from `package.json`, `pyproject.toml`, `requirements.txt`, file
 
 `scan` is the prerequisite for `audit`. If `.vibe-prompt/state/inventory.json` does not exist when `audit` is invoked, instruct the user to run `/vibe-prompt:scan` first. Never silently re-scan from within audit.
 
+## Model tiering
+
+Model tiering: this plugin annotates dispatch sites with tiers per the family RFC (vibe-plugins `docs/conventions/model-tiering-rfc.md`). The session maps tiers to models; when no cheaper tier is available, all tiers run on the session model — annotations are routing hints, never requirements.
+
+Annotated sites: `:eval`'s LLM-judge dispatches (both Swap-and-Discard runs) are `judgment` — the calibrated drift comparison is the product; `:eval`'s fixture synthesis is `bulk`. `:iterate`'s creative-discovery dispatch is `creative-divergent` — its prior haiku model pin is now `tier: creative-divergent` per the hard rule (skills never name model IDs). Per the family default, every `:evolve-prompt` dispatch is `judgment` by construction and carries no per-site annotation.
+
 ## Prompt-injection vulnerability grading (v0.4)
 
 v0.4 adds a fifth scoring dimension and three new audit findings that cover LLM-specific prompt-content security. This is a distinct surface from app-level injection (vibe-sec's territory) — it covers whether the prompt itself is structurally vulnerable to user-input override.

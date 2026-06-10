@@ -53,8 +53,9 @@ to the discovery prompt. These focus suggestions on areas the audit already flag
 
 ### 4. Dispatch creative-discovery LLM call
 
-Per `references/creative-discovery-prompt.md`. Use Agent tool with model="claude-haiku-4-5"
-(cheap; creative-divergent doesn't need top-tier reasoning) and temperature=0.9 (divergent).
+Per `references/creative-discovery-prompt.md`. Use the Agent tool at **dispatch tier: `creative-divergent`** —
+brainstorm/ideation where breadth beats rigor, so it routes to the cheap/fast tier (the session maps
+tier→model; never pin a model ID here). Set temperature=0.9 (divergent).
 
 Pass:
 - `domain.summary` from domain.json
