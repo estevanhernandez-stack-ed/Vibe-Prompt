@@ -12,7 +12,7 @@ From `.vibe-prompt/state/inventory.json`:
 
 1. **Check for user-provided fixture.** If `.vibe-prompt/eval/fixtures/<prompt-id>.json` exists, use it as-is. Skip synthesis. Mark `fixture.origin = "user-provided"`.
 
-2. **Otherwise synthesize.** Dispatch a subagent (haiku model) with this prompt:
+2. **Otherwise synthesize.** Dispatch a subagent at tier `bulk` (the session maps tier→model; no model ID pinned) with this prompt:
 
 ```
 You are generating a test input for an LLM prompt. The prompt expects these variables filled in:

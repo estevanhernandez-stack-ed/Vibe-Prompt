@@ -10,7 +10,7 @@ References `inject-attack-fixtures.md` for fixture context.
 
 ## Dispatch
 
-Subagent type: `general-purpose`. Model: `haiku` (binary classification; cheapest judge adequate here). One call per (prompt × var × fixture × vendor). No Swap-and-Discard.
+Subagent type: `general-purpose`. Dispatch tier: `instrument (calibrated)` — binary classification; the cheapest class is adequate AND class-consistency preserves comparability across runs. One call per (prompt × var × fixture × vendor). No Swap-and-Discard.
 
 ---
 

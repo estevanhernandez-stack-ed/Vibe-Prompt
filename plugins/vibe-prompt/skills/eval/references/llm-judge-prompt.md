@@ -4,7 +4,7 @@ The semantic comparator. Dispatches an in-session subagent to read both outputs,
 
 ## Dispatch
 
-Subagent type: `general-purpose`. Model: `haiku` (this is judge work; tighter cost). Prompt template below.
+Subagent type: `general-purpose`. Dispatch tier: `instrument (calibrated)` — the cheap/fast model class, held consistent across runs (this judge's scores feed the monotonic baseline; the calibration machinery exists to make a cheap-class judge reliable). Changing the judge's model class is a versioned event, never a per-session choice. Prompt template below.
 
 ## Prompt template (v0.4)
 
