@@ -1,3 +1,7 @@
+<p align="center">
+  <img alt="Vibe Prompt — close the prompt loop: audit, eval, grade, remediate" src="https://626labs.dev/assets/brand/plugins/vibe-prompt-banner-1500x500.png" />
+</p>
+
 # Vibe-Prompt
 
 Audit, organize, and classify the LLM prompts shipped in your app.
