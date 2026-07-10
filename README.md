@@ -1,4 +1,5 @@
 <p align="center">
+  <img src="assets/brand/icon.svg" width="120" alt="vibe-prompt mark">
   <img alt="Vibe Prompt — close the prompt loop: audit, eval, grade, remediate" src="https://626labs.dev/assets/brand/plugins/vibe-prompt-banner-1500x500.png" />
 </p>
 
