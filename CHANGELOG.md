@@ -28,6 +28,12 @@ Opus 5.5 era readiness. Claude Opus 5.5 (`claude-opus-5-5`) and Claude Fable 5.1
 - **Evaluator self-ID default.** `agent-self-id.md` defaulted Claude Code's model to `claude-opus-4-7`. The model now comes from the id the session exposes, else the user, else an explicit `"unknown"`; banners render `agent.model` instead of a literal.
 - **`check-skill-references.sh`** resolved sibling-skill links (`guide/references/...`) against the wrong directory: 37 false failures on main. Now green.
 
+### Known gaps (v0.9 candidates)
+
+- **Date-stripping hides fake dated ids.** `claude-haiku-4-20261022` strips to `claude-haiku-4`, matches no Retirement row, and stays silent. v0.9 checks the full dated id against the table's dated column first.
+- **Scan scope misses non-workspace root `scripts/` dirs** (found on QuizShow), so F14 never sees Anthropic calls there.
+- Prompt-text style advisories from the Opus 5.5 prompting guide ("think carefully" lines, "show your reasoning in the output" asks) are deliberately out of F14's scope.
+
 ### Since v0.7.1 (already on main)
 
 - Annotate `:eval` dispatch tiers and replace the `:iterate` model pin with `tier: creative-divergent` (5d0f990).

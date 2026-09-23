@@ -464,7 +464,10 @@ The four breaking patterns, per those pages:
 
 **Remediation path:** no `:remediate` category in v0.8. The fix is `/claude-api migrate` or the migration guide. **Cross-plugin handoff:** none.
 
-**Out of scope for v0.8 (v0.9 candidates):** prompt-text style advisories from the Opus 5.5 prompting guide, such as "think carefully" / "think step by step" lines that adaptive thinking makes redundant, and "show your reasoning in the output" asks that can trigger a `reasoning_extraction` refusal. Those are prompt-content smells, not API breakage, and they need their own calibration run before they fire.
+**Out of scope for v0.8 (v0.9 candidates):** prompt-text style advisories from the Opus 5.5 prompting guide, such as "think carefully" / "think step by step" lines that adaptive thinking makes redundant, and "show your reasoning in the output" asks that can trigger a `reasoning_extraction` refusal. Those are prompt-content smells, not API breakage, and they need their own calibration run before they fire. Two detection gaps from v0.8 real-app validation are also v0.9 candidates:
+
+- **Date-stripping hides fake dated ids.** Suffix-stripping maps `claude-haiku-4-20261022` to `claude-haiku-4`, which matches nothing in the Retirement dates table, so F6-retiring-model (and F14's retired-pin check) stays silent on an id that was never published. v0.9: check the full dated id against the table's dated column before stripping, and treat a date suffix that matches no published snapshot as an F6-suspect-model signal.
+- **Scan scope misses non-workspace root `scripts/` dirs.** In a monorepo, a root-level `scripts/` directory that no workspace declares (QuizShow) never reaches the inventory, so F14 never sees the Anthropic calls in it. v0.9: have `:scan` include undeclared root `scripts/` (and similar tool dirs) or surface them as a scan-scope warning.
 
 **Friction triggers:** `f14-migration-breakage-detected` (medium) on every fire; `f14-fired-on-non-anthropic-response` (low) when the user reports the positional-read trace landed on an MCP or other-vendor object.
 
