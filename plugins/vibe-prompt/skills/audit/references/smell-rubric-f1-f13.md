@@ -397,7 +397,7 @@ The four breaking patterns, per those pages:
 1. **Thinking can't be disabled.** Adaptive thinking is always on. `thinking: {type: "disabled"}` and `thinking: {type: "enabled", budget_tokens: N}` both return a 400 `invalid_request_error`. Effort (`output_config.effort`) is the control. Applies to Opus 5.5 and Fable 5.1.
 2. **Forced tool use is not supported.** `tool_choice` of `{type: "any"}` or `{type: "tool", name: ...}` returns a 400, including on the token-counting endpoint. `auto` (the default) and `none` are accepted. Applies to Opus 5.5 and Fable 5.1.
 3. **The `computer_20251124` tool is not accepted** on the Claude API and Google Cloud; the replacement is the `computer_toolset_20260801` toolset (no beta header, no `name`, no display dimensions). Amazon Bedrock still accepts `computer_20251124` on Opus 5.5. The whats-new page scopes this change to Opus 5.5.
-4. **Responses can begin with a `thinking` block.** Every response may open with one or more `thinking` blocks (empty text at the default `display: "omitted"`), and text between tool calls now arrives as progress-update `thinking` blocks. Positional reads (`response.content[0].text`, `content[0].type === 'text' ? content[0].text : ''`) silently return empty or throw. Read content blocks by `type`.
+4. **Responses can begin with a `thinking` block.** Every response may open with one or more `thinking` blocks (empty text at the default `display: "omitted"`), and text between tool calls now arrives as progress-update `thinking` blocks. Positional reads (`response.content[0].text`, `content[0].type === 'text' ? content[0].text : ''`, `const c = response.content[0]; if (c.type !== 'text') return []`) silently return empty, skip the result, or throw. A type check on a fixed index does not help: when block 0 is `thinking`, the check fails and the text in block 1 is never read. Select content blocks by `type`.
 
 **Detection rule (static):**
 
@@ -408,7 +408,15 @@ The four breaking patterns, per those pages:
    - **`F14-thinking-param`** — the request object sets `thinking` with `type: "disabled"` or `type: "enabled"` (with or without `budget_tokens`). `type: "adaptive"` does not fire.
    - **`F14-forced-tool-choice`** — the request object sets `tool_choice` with `type: "any"` or `type: "tool"`. `auto` and `none` do not fire.
    - **`F14-legacy-computer-tool`** — a `tools[]` entry has `type: "computer_20251124"` (or sends the `computer-use-2025-11-24` beta). If the client is the Bedrock SDK (`AnthropicBedrock`, `@anthropic-ai/bedrock-sdk`, `anthropic.AnthropicBedrock`) do not fire: Bedrock still accepts the tool.
-   - **`F14-positional-content-read`** — the code reads `content[0]` (or `content[-1]` / `.content.at(0)`) off a value that **traces back to the Messages response** of the call in step 1: the awaited return of `messages.create` / `.parse`, the `finalMessage()` of a stream, or the parsed JSON body of the raw `/v1/messages` fetch. Follow at most one assignment hop (`const res = await client.messages.create(...)`; `res.content[0].text`) plus one function return hop. `.find(b => b.type === 'text')`, `.filter(...)`, or an explicit `type` check on the same block before reading `.text` does not fire.
+   - **`F14-positional-content-read`** — the code **reads the first block by position** off a value that **traces back to the Messages response** of the call in step 1: the awaited return of `messages.create` / `.parse`, the `finalMessage()` of a stream, or the parsed JSON body of the raw `/v1/messages` request. Follow at most one assignment hop (`const res = await client.messages.create(...)`; `res.content[0].text`) plus one function return hop. Positional shapes that fire, in any language:
+     - `content[0]` (and `content[-1]` for the last block), including `content[0].text`, `content[0]?.text`, `content[0]["text"]`
+     - `.at(0)`, `.content.at(-1)`, `content.first` / `content.first()`
+     - destructuring: `const [first] = res.content`, `first, *_ = res.content`
+     - mutation reads: `content.shift()`, `content.pop()`
+     - 1-indexed languages: Lua / Luau `content[1]`, and the equivalent first-element index in any other 1-indexed language
+     - **a type check on a fixed index still fires.** `content[0].type === 'text' ? content[0].text : ''`, `const c = response.content[0]; if (c.type !== 'text') return []`, and `if content[0].type == "text":` all read block 0 and give up when it is a `thinking` block. They return empty or skip with no error, which is the exact failure.
+
+     **Exempt only type-based selection across the blocks:** `.find(b => b.type === 'text')`, `.filter(b => b.type === 'text')`, a `for` / `for...of` / `ipairs` loop that picks blocks by `type`, a list comprehension filtered on `type`, or a helper one hop away that does one of these. The test is whether the code can reach a `text` block that is not at index 0.
 3. **Resolve the model** for each fired call from the request's `model` field:
    - A string literal, or a const that resolves in the same file or a one-hop import. `claude-opus-5-5`, `claude-fable-5-1`, or a later release in the 5.x line (suffix-stripped per `references/known-models.md`, Bedrock `anthropic.` prefix included) → `modelResolution: "resolved"`, severity **high**. `claude-mythos-5-1` is not named in the breaking-change text; treat it as `unresolved` (high) until the docs say otherwise.
    - A variable, env var (`process.env.*`, `os.environ[...]`), function parameter, or config lookup the audit can't resolve → `modelResolution: "unresolved"`, severity **high**. The code doesn't pin the model, so whoever sets that value next can break it.
@@ -448,7 +456,8 @@ The four breaking patterns, per those pages:
 **Edge cases:**
 - A shared client wrapper (one `messages.create` used by many prompts) fires once per sub-case at the wrapper, not once per prompt. Each prompt routed through it still takes the score deduction.
 - Streaming code that accumulates only `text_delta` events is safe for the positional case; code that indexes `content_block_start` events by `index === 0` expecting text fires.
-- An SDK helper that already selects text by type (e.g. a local `getText(res)` that filters by `type`) does not fire; follow the one function hop before firing.
+- An SDK helper that already selects text by type (e.g. a local `getText(res)` that filters or loops by `type`) does not fire; follow the one function hop before firing. A helper that checks the type of `content[0]` does fire: it is still a fixed-index read.
+- Real positives from v0.8 validation: `Project-626Labs-1/functions/src/domains/ai/index.ts:76` (`response.content[0].type === 'text' ? response.content[0].text : ''`), and QuizShow `apps/cinema/scripts/claude-question-gen.ts:287`, `:363`, `:443` and `apps/cinema/scripts/batch-personality-rewrite.ts:392` (`const content = response.content[0]; if (content.type !== 'text') return [];` / `continue;`).
 
 **Remediation path:** no `:remediate` category in v0.8. The fix is `/claude-api migrate` or the migration guide. **Cross-plugin handoff:** none.
 
