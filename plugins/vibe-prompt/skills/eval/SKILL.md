@@ -78,7 +78,7 @@ Load `vibe-prompt:guide` first. Then load `references/composer-mimic.md`, `refer
 ```
 ═══ Vibe-Prompt eval ═══
 Mode:           drift
-Evaluator:      Claude Code (claude-opus-4-7)
+Evaluator:      {agent.name} ({agent.model})   # from .vibe-prompt/eval/agent.json, never a hardcoded id
 Prompts:        14 run, 14 succeeded, 0 errored
 
 Drift detected:

@@ -10,14 +10,24 @@ Check for known agent runtime env vars:
 
 | Env var pattern | Agent name | Likely model field source |
 |---|---|---|
-| `CLAUDE_CODE_*` | Claude Code | Ask in interview, default "claude-opus-4-7" |
+| `CLAUDE_CODE_*` | Claude Code | Detect from the session (see Model field below); ask if the session doesn't expose it |
 | `CURSOR_*` | Cursor | Ask which model variant |
 | `CLINE_*` | Cline | Ask which model variant |
-| `GEMINI_CLI_*` | Gemini CLI | Default "gemini-2.5-pro" |
+| `GEMINI_CLI_*` | Gemini CLI | Detect from the session; ask if not exposed |
 | `WINDSURF_*` | Windsurf | Ask which model variant |
 | `GOOSE_*` | Goose | Ask which model variant |
 
 If a match fires, fall through to user interview for the model field if unclear.
+
+### Model field: detect from the session, or ask. Never default.
+
+The `model` field is never filled from a hardcoded default. A default goes stale the day a new model ships (the pre-v0.8 `claude-opus-4-7` default did exactly that) and then every judge footer names the wrong evaluator, which is the one thing the evaluator-drift framing exists to get right.
+
+1. **Session-exposed model id.** Some harnesses state the running model's exact id in the session context the agent already reads (Claude Code does). If present, use it verbatim, including any context suffix such as `[1m]`. `detectionMethod` stays whatever found the agent name.
+2. **Ask.** If the session doesn't expose an id, ask the user which model is driving the session, and record `detectionMethod: "user-declared"` when the name also came from the interview.
+3. **Unknown.** If the user doesn't know, record the `model` field as `"unknown"` and say so in the judge footer. An honest unknown beats a confident wrong id.
+
+This is not Signal 4 self-introspection: reading an id the harness printed into the session is a fact lookup, not asking the model to describe itself.
 
 ### Signal 2: Marker files
 
@@ -64,7 +74,7 @@ Write `.vibe-prompt/eval/agent.json` validated against `agent.schema.json`:
 {
   "version": "0.1",
   "name": "Claude Code",
-  "model": "claude-opus-4-7",
+  "model": "<id from the session, or as the user declared it>",
   "vendor": "anthropic",
   "detectedAt": "2026-05-28T...",
   "detectionMethod": "marker-file"

@@ -91,7 +91,7 @@ For every entry in `composers[]`:
 Inventory:      14 prompts found at .vibe-prompt/state/inventory.json
 Composer:       captured (6 layers, kind=stacked)
                 source: src/lib/gemini.ts
-Agent:          Claude Code (claude-opus-4-7), detected via marker-file
+Agent:          {agent.name} ({agent.model}), detected via {agent.detectionMethod}
 Config:         .vibe-prompt/eval/config.json written
                 vendors: gemini (default: gemini-3.5-flash)
                 ceiling: $2.00
