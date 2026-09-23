@@ -17,7 +17,7 @@ Vibe-Prompt is the prompt-audit and behavioral-testing layer for vibe-coded apps
 ## What it does
 
 - `/vibe-prompt:scan` — inventory pass. Finds every prompt site in your app (registry + inline). Detects template-literal `${var}`, string-concat, and JSX-attr interpolations alongside `{{handlebars}}`. Classifies each templated var by origin (user-controlled vs system-injected) so injection grading targets the right vars.
-- `/vibe-prompt:audit` — structural pass. Flags 13 smell categories (F1–F13) with file:line evidence. Produces per-prompt scores across 5 dimensions (schema tightness, persona consistency, instruction clarity, token efficiency, injection resistance). F9 checks date-grounding; F10-F12 grade prompt-injection vulnerability and filter out system-injected vars before firing; F12 detection is now API-parameter-aware (deterministic when composer.json layers have `apiParameter` populated); F13 flags prompts that use structural cues without declaring their output format.
+- `/vibe-prompt:audit` — structural pass. Flags 14 smell categories (F1–F14, plus the F6 suspect-model and retiring-model sub-findings) with file:line evidence. Produces per-prompt scores across 5 dimensions (schema tightness, persona consistency, instruction clarity, token efficiency, injection resistance). F9 checks date-grounding; F10-F12 grade prompt-injection vulnerability and filter out system-injected vars before firing; F12 detection is now API-parameter-aware (deterministic when composer.json layers have `apiParameter` populated); F13 flags prompts that use structural cues without declaring their output format; F14 flags Anthropic call sites that break on Claude Opus 5.5 / Fable 5.1; F6-retiring-model flags retired and soon-retiring model ids.
 - `/vibe-prompt:eval` — behavioral pass. Runs prompts against the prod model + an in-session Claude baseline. Surfaces semantic drift via mechanical comparator (including value-type-drift check) + LLM-judge with SWRS calibration, Long CoT reasoning, Swap-and-Discard position-bias mitigation, and verbosity penalty. Per-dimension scores on eval output. Cost-gated; always confirms before spending. Accepts `--inject-attacks` flag to run 6 canonical injection patterns against each prompt with a user-input var — judges whether the model honored the attack or held its role. Handoff to `/vibe-sec:audit` recommended when attacks succeed.
 - `/vibe-prompt:grade` — synthesis pass. Reads audit + latest eval scores and computes per-prompt + app composite grades via weighted average. Tracks each prompt's best-ever score as the monotonic baseline — improvements advance it, regressions flag without resetting. Surfaces composite trends and flagged regressions in one dashboard.
 - `/vibe-prompt:iterate` — discovery pass. Reads your inventory + audit findings + app domain (detected from CLAUDE.md → vibe-tool artifacts → package metadata → brief interview), dispatches one creative-divergent LLM call (~$0.02), and returns 3-5 prompts your app could add — each with a handoff hint to `/vibe-cartographer:scope` or `/vibe-iterate:feature-add`.
@@ -25,6 +25,18 @@ Vibe-Prompt is the prompt-audit and behavioral-testing layer for vibe-coded apps
 - `/vibe-prompt:radar` — model-news pass. Checks for new model releases, deprecations, and pricing changes from your vendors. Zero LLM cost; reads vendor changelogs and docs.
 - `/vibe-prompt` (bare) — state-aware router; reads inventory + audit + eval + grade + iterate + radar state plus pending remediation files and recommends the next move.
 - `/vibe-prompt:evolve-prompt` — L3 self-evolution. Reads session + friction logs across all seven commands and proposes improvements to the plugin itself. Never auto-applies.
+
+## What's new in v0.8
+
+"Opus 5.5 era readiness." Two static findings for the ways a model change breaks a working app without touching a single prompt. No breaking changes: every v0.7 artifact validates against v0.8 schemas.
+
+**F14: Model-migration API breakage.** Claude Opus 5.5 and Claude Fable 5.1 reject disabled or manual-budget thinking and forced `tool_choice` with a 400, Opus 5.5 rejects the `computer_20251124` tool on the Claude API, and responses can now open with a `thinking` block, so a `response.content[0].text` read returns an empty string with no error. F14 reads each Anthropic Messages call site in your inventory's files and fires one of four sub-cases: `F14-thinking-param`, `F14-forced-tool-choice`, `F14-legacy-computer-tool`, `F14-positional-content-read`. High when the call's model is a 5.5-era id or can't be resolved statically, medium (latent) when pinned to an older model. MCP tool results and other vendors' responses never fire. Fix path: the [Opus 5.5 migration guide](https://platform.claude.com/docs/en/models/opus-5-5/migration-guide) or `/claude-api migrate`. Suppress per hit via `audit.f14.exceptions`.
+
+**F6-retiring-model.** The bundled model list now carries the vendors' retirement schedules. A referenced model id that's already retired fires high; one retiring within 60 days fires medium, with the date and days remaining in evidence.
+
+**Model list refresh.** `known-models.md` rebuilt against the Anthropic and Google docs on 2026-09-22: the 5.x Claude lineup and Bedrock ids in, two never-published Claude ids out, and the three Gemini ids the v0.7.1 round-trip falsely flagged now recognized.
+
+**Plus:** the `:eval` judge and baseline dispatches are tagged `instrument (calibrated)` consistently (GitHub #1), and evaluator self-ID reads the model from the session instead of a stale hardcoded default.
 
 ## What's new in v0.7
 
@@ -138,7 +150,7 @@ Get a free API key at [Google AI Studio](https://aistudio.google.com/app/apikey)
 
 Keys are read from the environment only and never written to disk.
 
-## Smell rubric (v0.7, F1–F13)
+## Smell rubric (v0.8, F1–F14)
 
 | ID | Name | Severity | Static / Eval | Score impact |
 |---|---|---|---|---|
@@ -150,14 +162,16 @@ Keys are read from the environment only and never written to disk.
 | F5 | Persona sprawl | low | static | persona −1 |
 | F6 | Hardcoded model id | high | static | clarity −2 |
 | F6-suspect-model | Model id not in known-models list | medium | static | clarity −2 |
+| F6-retiring-model | Model id retired, or retiring within 60 days | high (retired) / medium | static | clarity −1 |
 | F7 | Dead prompt code | medium | static | token −2 |
 | F9 | Date-handling prompt without temporal grounding | high | static | clarity −3, schema −1 |
 | F10 | User-input var without sanitization marker | high | static | injectionRes −4, clarity −1 |
 | F11 | Defense-in-depth scarcity | medium | static | injectionRes −2 |
 | F12 | User-var at or before system instruction | critical | static | injectionRes −6, persona −2 |
 | F13 | Implicit output format (structural cues + no declaration) | medium | static | schema −2, clarity −1 |
+| F14 | Model-migration API breakage (Opus 5.5 / Fable 5.1 call shapes) | high / medium (latent) | static | clarity −1, schema −1 |
 
-F10-F12 carry `handoffHint: "vibe-sec:audit"` for cross-plugin app-level review. F1 now gates on `registry.kind` — only fires on `prompt-content` or `hybrid` registries; model-routing and task-mapping registries no longer trigger false F1 positives (closes the 626Labs `config/modelRegistry.ts` class). F12 severity degrades to high ONLY when `apiParameter` confidence is low — composer multiplicity no longer drags severity (v0.7 decoupling). F6-suspect-model fires on model IDs absent from the bundled known-models list; confidence high when context7 vendor lookup confirms not-in-published-list, medium when bundled-list-only.
+F10-F12 carry `handoffHint: "vibe-sec:audit"` for cross-plugin app-level review. F1 now gates on `registry.kind` — only fires on `prompt-content` or `hybrid` registries; model-routing and task-mapping registries no longer trigger false F1 positives (closes the 626Labs `config/modelRegistry.ts` class). F12 severity degrades to high ONLY when `apiParameter` confidence is low — composer multiplicity no longer drags severity (v0.7 decoupling). F6-suspect-model fires on model IDs absent from the bundled known-models list; confidence high when context7 vendor lookup confirms not-in-published-list, medium when bundled-list-only. F6-retiring-model reads the list's Retirement dates section. F14 inspects the API call around the prompt, not the prompt text, and has no `:remediate` category: the fix is `/claude-api migrate`.
 
 ## Stack coverage (v0.5)
 

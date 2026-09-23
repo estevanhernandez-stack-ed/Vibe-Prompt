@@ -1,5 +1,53 @@
 # Changelog
 
+## [0.8.0] — 2026-09-22
+
+Opus 5.5 era readiness. Claude Opus 5.5 (`claude-opus-5-5`) and Claude Fable 5.1 (`claude-fable-5-1`) reject request shapes earlier models accepted and can open a response with a `thinking` block. None of that is visible in the prompt text, so F1-F13 couldn't see it. v0.8 adds two static findings for the ways a model change breaks a working app without touching a single prompt, refreshes the bundled model list against the vendor docs, and closes GitHub issue #1. No breaking changes to v0.7 commands, schemas, or state files.
+
+### Added
+
+- **F14 — Model-migration API breakage.** New static finding. Reads each Anthropic Messages call site (`@anthropic-ai/sdk`, Python `anthropic`, or a raw request to `api.anthropic.com/v1/messages`) in the inventory's files and fires four sub-cases: `F14-thinking-param` (`thinking` disabled or manual `budget_tokens`, a 400), `F14-forced-tool-choice` (`tool_choice` `any` / `tool`, a 400), `F14-legacy-computer-tool` (`computer_20251124` on the Claude API / Google Cloud, a 400; Bedrock exempt), and `F14-positional-content-read` (`content[0]` read off the Messages response, which silently returns empty once a `thinking` block leads). Severity high when the call's model resolves to a 5.5-era id or can't be resolved statically; medium ("latent") when pinned to an older model. `evidence.modelResolution` records `resolved` | `unresolved` | `older-pinned`. The positional read fires only when the trace ends at an Anthropic Messages response: MCP `callTool` results and other vendors' responses never fire (real negative: `626MCP-VsCodeExtension/.../statusBar.ts:136`), and neither does OpenAI's `tool_choice: 'auto'`. Score impact: instruction-clarity −1, schema-tightness −1. Suppress per hit via `audit.f14.exceptions`. Fix path is the Opus 5.5 migration guide or `/claude-api migrate`; no `:remediate` category. Sources cited in the rubric.
+
+- **F6-retiring-model sub-finding.** Fires high when a referenced model id (date suffix stripped) is already retired, medium when it retires within 60 days. Evidence: `modelValue`, `occurrences[]`, `retirementDate`, `retirementDateKind`, `daysRemaining`. Score impact: instruction-clarity −1. Real positives from the build: `6deux6/config.json:3` (`claude-haiku-4-5-20251001`, medium) and `Project-626Labs-1/services/ai/ClaudeProvider.ts:24` (`claude-3-5-sonnet-20241022`, retired, high).
+
+- **Retirement dates section in `known-models.md`.** Anthropic and Google Gemini schedules mirrored from the vendor deprecations pages, each row tagged `retired`, `scheduled`, or `floor` ("not sooner than").
+
+- **3 new friction triggers:** `f14-migration-breakage-detected`, `f14-fired-on-non-anthropic-response`, `f6-retiring-model-detected`, with v0.8 handler templates in `:evolve-prompt`.
+
+### Changed
+
+- **`known-models.md` refreshed (last-updated 2026-09-22).** Anthropic list rebuilt from the models overview and deprecations pages: Opus 5.5, Fable 5.1, Sonnet 5, Opus 5, Fable 5, Opus 4.8, Mythos 5 / 5.1, and the confirmed Bedrock `anthropic.*` ids. `claude-sonnet-4-7` and `claude-haiku-4-6` removed (neither was ever published). Gemini list adds `gemini-2.5-flash-image`, `gemini-3.5-flash`, and `gemini-3-pro-preview`, the three false F6-suspects from the v0.7.1 round-trip, plus the current 3.x ids. Detection rules also strip `@YYYYMMDD` and `[1m]` suffixes.
+- `:audit` walks F1 → … → F6 → F6-suspect-model → F6-retiring-model → F7 → … → F13 → F14.
+- Audit report template renders F14 and F6-retiring-model; high F14 and high F6-retiring-model lead the recommended fix sequence (both are live failures, not smells).
+- Scoring table gains the F14, F6-retiring-model, and previously missing F6-suspect-model rows.
+- Guide SKILL adds "Opus 5.5 era readiness (v0.8)" and corrects the severity list.
+
+### Fixed
+
+- **Judge tier (GitHub #1).** The guide's Model tiering section tagged `:eval`'s LLM-judge dispatches `judgment`, contradicting `eval/SKILL.md` and the family RFC. Now `instrument (calibrated)` everywhere. The in-session baseline call in `vendor-clients.md` drops its bare `model: "haiku"` pin for the same tier annotation.
+- **Evaluator self-ID default.** `agent-self-id.md` defaulted Claude Code's model to `claude-opus-4-7`. The model now comes from the id the session exposes, else the user, else an explicit `"unknown"`; banners render `agent.model` instead of a literal.
+- **`check-skill-references.sh`** resolved sibling-skill links (`guide/references/...`) against the wrong directory: 37 false failures on main. Now green.
+
+### Since v0.7.1 (already on main)
+
+- Annotate `:eval` dispatch tiers and replace the `:iterate` model pin with `tier: creative-divergent` (5d0f990).
+- `:eval` judge dispatches retagged as calibrated instruments, not judgment-tier (0437ebb).
+- README family hero banner (118eec5).
+- vibe-prompt brand mark from the vibe family icon pass (0dfe14a).
+
+### Schema changes
+
+- `audit.schema.json` — `findings[].id` enum gains `F14` and `F6-retiring-model`; `findings[].subCase` optional enum (the four F14 sub-cases); `evidence[]` items gain optional `modelValue`, `modelResolution`, `retirementDate`, `retirementDateKind`, `daysRemaining`.
+- `config.schema.json` — `audit.f14.exceptions` string array.
+
+### Migration notes
+
+- **No breaking changes.** Every v0.7 artifact validates against v0.8 schemas; all new fields are optional.
+- **F14 and F6-retiring-model run automatically** on the next `:audit`. No re-scan needed; F14 re-reads call-site source from the files the inventory already lists.
+- `audit.f6.modelIdExceptions` does not suppress F6-retiring-model: an exception says an id is real, not that it will keep answering.
+
+---
+
 ## [0.7.1] — 2026-06-09
 
 Manifest-location fix. No behavior or schema changes.
