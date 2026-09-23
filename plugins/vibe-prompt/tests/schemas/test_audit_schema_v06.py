@@ -84,8 +84,11 @@ class TestAuditV06F13EnumExtension(unittest.TestCase):
         )
         validate(instance=doc, schema=self.schema)
 
-    def test_finding_with_F14_rejected(self):
-        doc = _minimal_doc(_minimal_finding(fid="F14"))
+    def test_finding_with_unknown_id_rejected(self):
+        # v0.6 pinned the enum's upper bound at F13 by rejecting F14. v0.8
+        # adds F14 (model-migration API breakage), so the bound moves: an id
+        # no version has defined must still be rejected.
+        doc = _minimal_doc(_minimal_finding(fid="F99"))
         with self.assertRaises(ValidationError):
             validate(instance=doc, schema=self.schema)
 
