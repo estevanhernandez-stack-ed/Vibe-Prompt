@@ -16,7 +16,7 @@ Reflect on the last N days of Vibe-Prompt usage and propose changes to the plugi
 
 All six step-commands contribute to these logs: scan, audit, eval, radar, grade, and iterate. Eval-side friction (cost-ceiling hits, evaluator-drift dismissals, fixture-synthesis misses) and radar-side friction (stale cache, unreachable sources) are first-class inputs to the loop — evolution is consolidated here, not split into a separate command per step.
 
-Grade-side friction triggers (weight overrides, regression handling, Swap-and-Discard tie rates) map to the `vibe-prompt:grade` SKILL and `references/scoring-dimensions.md` or `references/composite-formula.md` for proposed changes. Iterate-side friction triggers (off-domain suggestions, implemented suggestions) map to the `vibe-prompt:iterate` SKILL and `references/domain-detection.md` or `references/creative-discovery-prompt.md`.
+Grade-side friction triggers (weight overrides, regression handling, Swap-and-Discard tie rates) map to the `vibe-prompt:grade` SKILL and `audit/references/scoring-dimensions.md` or `grade/references/composite-formula.md` for proposed changes. Iterate-side friction triggers (off-domain suggestions, implemented suggestions) map to the `vibe-prompt:iterate` SKILL and `iterate/references/domain-detection.md` or `iterate/references/creative-discovery-prompt.md`.
 
 **v0.4 trigger handler templates** — four new triggers added in v0.4 and their canonical change targets:
 
