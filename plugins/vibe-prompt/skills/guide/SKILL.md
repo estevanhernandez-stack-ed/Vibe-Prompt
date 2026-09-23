@@ -48,7 +48,7 @@ Detect the stack from `package.json`, `pyproject.toml`, `requirements.txt`, file
 
 Model tiering: this plugin annotates dispatch sites with tiers per the family RFC (vibe-plugins `docs/conventions/model-tiering-rfc.md`). The session maps tiers to models; when no cheaper tier is available, all tiers run on the session model — annotations are routing hints, never requirements.
 
-Annotated sites: `:eval`'s LLM-judge dispatches (both Swap-and-Discard runs) are `judgment` — the calibrated drift comparison is the product; `:eval`'s fixture synthesis is `bulk`. `:iterate`'s creative-discovery dispatch is `creative-divergent` — its prior haiku model pin is now `tier: creative-divergent` per the hard rule (skills never name model IDs). Per the family default, every `:evolve-prompt` dispatch is `judgment` by construction and carries no per-site annotation.
+Annotated sites: `:eval`'s LLM-judge dispatches (both Swap-and-Discard runs, and the `--inject-attacks` binary judge) are `instrument (calibrated)` — the judge is a deliberately cheap-class comparator made reliable by the calibration machinery, and its scores feed the monotonic baseline, so model-class consistency across runs beats model strength and drift is the failure (see `eval/SKILL.md` step 5). `:eval`'s in-session baseline call is also `instrument (calibrated)`: it is the reference side of every drift comparison. `:eval`'s fixture synthesis is `bulk`. `:iterate`'s creative-discovery dispatch is `creative-divergent` — its prior haiku model pin is now `tier: creative-divergent` per the hard rule (skills never name model IDs). Per the family default, every `:evolve-prompt` dispatch is `judgment` by construction and carries no per-site annotation.
 
 ## Prompt-injection vulnerability grading (v0.4)
 

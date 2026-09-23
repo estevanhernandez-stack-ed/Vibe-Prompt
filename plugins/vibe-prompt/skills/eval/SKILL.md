@@ -39,7 +39,7 @@ Load `vibe-prompt:guide` first. Then load `references/composer-mimic.md`, `refer
 
 5. **Execute eval.** For each (prompt, fixture):
    - Call prod model via `GeminiClient` (or appropriate vendor) per `references/vendor-clients.md`. Update running cost.
-   - Call baseline via `InSessionAgentClient` (drift mode only).
+   - Call baseline via `InSessionAgentClient` (drift mode only). **Dispatch tier:** `instrument (calibrated)` — the baseline is the reference output every drift finding compares against; hold its model class steady across runs.
    - Apply mechanical comparator per `references/mechanical-comparator.md`. Run all checks in order: hard-fail → both-failed → schema-shape → **value-type-drift** (v0.4 new: fires when key is present but value type differs between prod/baseline or deviates from OUTPUT_SCHEMA declared type; includes value-type-drift-both variant; positioned between schema-shape and length-delta per the comparator reference) → length-delta → token-delta → empty.
    - **LLM-judge with Swap-and-Discard** per `references/llm-judge-prompt.md` and `references/swap-and-discard.md` (unless `--no-judge`):
      - **Dispatch tier:** `instrument (calibrated)` — the judge is a deliberately cheap-class comparator made reliable by the calibration machinery (Long CoT, SWRS, Swap-and-Discard), and its scores feed the monotonic baseline. Model-CLASS consistency across runs beats model strength; changing the judge's class is a versioned event (it resets baselines), never a session routing choice.

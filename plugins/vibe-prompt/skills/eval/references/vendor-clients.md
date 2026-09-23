@@ -150,7 +150,7 @@ Use the rates in `cost-gates.md`. Add to running total.
 Dispatch a subagent via the Agent tool with:
 
 - `subagent_type: "general-purpose"`
-- `model: "haiku"` (cheap; the baseline doesn't need top-tier reasoning)
+- Dispatch tier: `instrument (calibrated)` (the session maps tier to model; never pin a model ID here). The baseline is the reference side of every drift comparison, so its model CLASS must hold steady across runs: a cheap class is fine, a class that changes per session manufactures drift. Changing the baseline's class is a versioned event that resets baselines, same rule as the judge.
 - Prompt: the composed system prompt as system context + the fixture-filled user prompt as the task
 - Instruction in prompt: "Produce ONLY the model output, no commentary. Do not preface or post-amble."
 
