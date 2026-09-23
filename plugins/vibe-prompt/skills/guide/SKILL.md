@@ -33,7 +33,7 @@ Vibe-Prompt operates in two modes. Know which one you're in before acting.
 
 - **State files** are JSON, validated against `plugins/vibe-prompt/schemas/`.
 - **Reports** are markdown under `docs/vibe-prompt/`, dated `audit-YYYY-MM-DD.md`.
-- **Severity** is `high | medium | low`. F1, F2, F4, F6 default high; F7, F3 medium; F5 low.
+- **Severity** is `critical | high | medium | low | advisory`. F1, F2, F4, F6, F9, F10 default high; F12 critical; F3, F6-suspect-model, F7, F11, F13 medium; F5 low; F1b advisory. F6-retiring-model and F14 (v0.8) are high or medium by rule: high when the breakage is live (model retired; call targets a 5.5-era or unresolvable model), medium when it has a date on it (retiring within 60 days; older model pinned).
 - **Dashboards from `:eval`** go to `docs/vibe-prompt/eval-YYYY-MM-DD-HHMM.md`.
 
 ## Stack detection
@@ -161,6 +161,16 @@ v0.7 closes the four structural gaps the cross-app probe surfaced on 626Labs + W
 **Router state branches grow 10 → 13.** Three new branches: `workspace-rescan-needed` (workspaceKind = npm-workspaces or nested-projects AND no per-workspace inventory files), `workspace-grade-needed` (per-workspace inventories exist AND no per-workspace composites), `category-d-pending-review` (pending Category D diffs in `.vibe-prompt/remediate/pending/`).
 
 **No breaking changes.** Every v0.6 artifact (composer.json, inventory.json, audit.json, remediate-result.json, pending-fix.diff front-matter, grade-result.json, config.json) validates against v0.7 schemas. New fields are optional; backward-compat shims auto-promote single-composer / single-workspace shapes when read by v0.7-aware consumers.
+
+## Opus 5.5 era readiness (v0.8)
+
+v0.8 adds two static findings for the ways a model change breaks a working app without touching a single prompt. No new commands, no new remediate category, no breaking changes: every v0.7 artifact validates against v0.8 schemas.
+
+**F14 — Model-migration API breakage.** Claude Opus 5.5 (`claude-opus-5-5`) and Claude Fable 5.1 (`claude-fable-5-1`) reject request shapes earlier models accepted and can open a response with a `thinking` block. F14 reads each Anthropic Messages call site in the inventory's files and fires four sub-cases: `F14-thinking-param` (disabled or manual-budget thinking, a 400), `F14-forced-tool-choice` (`tool_choice` `any` / `tool`, a 400), `F14-legacy-computer-tool` (`computer_20251124` on the Claude API / Google Cloud, a 400), and `F14-positional-content-read` (`content[0]` reads off the Messages response, which silently return empty). Severity is high when the call's model resolves to a 5.5 / 5.1-era id or can't be resolved statically, medium ("latent") when pinned to an older model. The positional read only fires when the trace ends at an Anthropic Messages response: MCP `callTool` results and other vendors' responses never fire. Score impact: instruction-clarity −1, schema-tightness −1. Suppress per hit with `audit.f14.exceptions` (`file:line` or prompt id). Fix path: the Opus 5.5 migration guide or `/claude-api migrate`; there is no `:remediate` category for F14.
+
+**F6-retiring-model.** `known-models.md` now carries a Retirement dates section mirrored from the Anthropic and Google deprecation pages. F6-retiring-model fires high when a referenced model id (date suffix stripped) is already retired, medium when it retires within 60 days. Evidence carries `retirementDate`, `retirementDateKind` (`retired` / `scheduled` / `floor`), and `daysRemaining`. Score impact: instruction-clarity −1. `audit.f6.modelIdExceptions` does not suppress it: an exception says an id is real, not that it will keep answering.
+
+**known-models.md refresh.** Anthropic list rebuilt from the models overview and deprecations pages (Opus 5.5, Fable 5.1, Sonnet 5, Opus 5, Fable 5, Opus 4.8, Mythos, Bedrock `anthropic.*` forms); the never-published `claude-sonnet-4-7` and `claude-haiku-4-6` entries removed. Gemini list adds `gemini-2.5-flash-image`, `gemini-3.5-flash`, `gemini-3-pro-preview` (real, but shut down 2026-03-09, so F6-retiring-model owns it), and the current Gemini 3.x ids.
 
 ## Self-evolution
 

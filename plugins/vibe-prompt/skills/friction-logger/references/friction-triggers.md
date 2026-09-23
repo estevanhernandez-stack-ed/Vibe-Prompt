@@ -119,3 +119,13 @@ Nine new triggers covering multi-composer detection, workspace-awareness, Catego
 | `f6-suspect-model-detected` | medium | `:audit` F6 fired the suspect-model sub-finding (model id not in bundled known-models list AND not in `config.audit.f6.modelIdExceptions`). Medium confidence — user may have a legitimate model id that the bundled list hasn't caught up to yet. Surface the candidate id + invite user to add to exceptions or update the bundled list. If context7 was unavailable when the lookup ran, confidence is lower; if context7 confirmed not-in-published-list, confidence is high. |
 | `consolidated-diff-closes-multiple-findings` | positive | `:remediate` emitted a consolidated Category C diff that closed F10 + F11 (and optionally F12-high) in a single edit instead of two/three diffs. Positive signal — the consolidation-rules heuristic correctly recognized the same call site + structural overlap and saved the user from reviewing duplicate diffs. Validates `consolidation-rules.md` for this app. |
 | `f12-severity-no-longer-degraded-by-composer-multiplicity` | positive | After v0.7 F12 severity-decoupling, a finding that v0.6 would have degraded from critical → high purely because of composer multiplicity now stays critical (apiParameter detection succeeded; multiplicity is metadata, not severity input). Positive signal — the v0.7 decoupling correctly separates detection ambiguity from composition shape. Lift this case into the smell-rubric example if the pattern recurs. |
+
+## v0.8 triggers (Opus 5.5 era readiness)
+
+Three new triggers covering F14 model-migration API breakage and F6-retiring-model.
+
+| Trigger code | Confidence | When |
+|---|---|---|
+| `f14-migration-breakage-detected` | medium | `:audit` F14 fired at least one sub-case (`F14-thinking-param`, `F14-forced-tool-choice`, `F14-legacy-computer-tool`, `F14-positional-content-read`). Logged once per sub-case per run so `/evolve-prompt` sees which breakage patterns real apps carry |
+| `f14-fired-on-non-anthropic-response` | low | User reports an F14 positional-content-read hit whose trace actually landed on an MCP `callTool` result or another vendor's response object. Signal that the response-trace rule or the false-positive guard list needs another pattern |
+| `f6-retiring-model-detected` | medium | `:audit` fired F6-retiring-model (referenced model id is retired or retires within 60 days per the known-models.md Retirement dates section). Medium because the bundled table can go stale; a `floor passed` note in evidence is the stale-table signal |

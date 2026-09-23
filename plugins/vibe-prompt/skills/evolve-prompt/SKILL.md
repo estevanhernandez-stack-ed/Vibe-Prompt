@@ -62,6 +62,14 @@ Grade-side friction triggers (weight overrides, regression handling, Swap-and-Di
 | `consolidated-diff-closes-multiple-findings` | positive | Positive signal. Map to `remediate/references/consolidation-rules.md` + `remediate/SKILL.md` consolidation step. Propose: (a) lift the consolidation pattern into the docs example if the F10+F11(+F12-high) overlap was novel, OR (b) extend the consolidation-rules priority order to cover additional finding combinations if multiple positive signals accumulate. Do not propose changes to working consolidation logic — absence-of-friction inference applies. |
 | `f12-severity-no-longer-degraded-by-composer-multiplicity` | positive | Positive signal. Map to `audit/references/smell-rubric-f1-f13.md` F12 severity-decoupling section + `audit/SKILL.md` F12 severity-decision step. Propose: (a) lift the proven decoupling case into the rubric example so future runs anchor on the pattern, OR (b) tighten the severity-decoupling rule documentation if user feedback indicates the decoupling rationale wasn't clear in the report. Do not propose changes to working detection — absence-of-friction inference applies. |
 
+**v0.8 trigger handler templates** — three new triggers added in v0.8 (F14 model-migration API breakage + F6-retiring-model) and their canonical change targets:
+
+| Trigger code | Confidence | Handler: what to propose |
+|---|---|---|
+| `f14-migration-breakage-detected` | medium | Map to `audit/references/smell-rubric-f1-f13.md` §F14 + `audit/SKILL.md` step 4g. Propose: (a) if one sub-case dominates across apps, lift its fix snippet into the rubric's recommendation template with the app's actual SDK idiom, OR (b) if the fired calls were all `older-pinned`, consider whether latent medium is the right default. Cross-check the fired patterns against the current migration guide before proposing; the vendor may have added a new breaking change |
+| `f14-fired-on-non-anthropic-response` | low | Map to `audit/references/smell-rubric-f1-f13.md` §F14 false-positive guards + `audit/SKILL.md` step 4g. Propose: add the reported response shape (MCP client, other vendor SDK, wrapper type) to the guard list with the file:line the user cited as a real negative |
+| `f6-retiring-model-detected` | medium | Map to `audit/references/known-models.md` Retirement dates section + `audit/SKILL.md` step 4 F6-retiring-model bullet. Propose: (a) refresh the Retirement dates tables from the vendor deprecations pages if any evidence carries `floor passed`, OR (b) add rows for retiring ids the audits met that the table lacks. Never add a date a vendor page does not print |
+
 ## Workflow
 
 1. **Pre-flight.** session-logger start. If `sessions.jsonl` has zero entries in the window, friction-log `no-sessions-in-30-days` and exit.

@@ -103,6 +103,17 @@
               "items": { "type": "string" }
             }
           }
+        },
+        "f14": {
+          "type": "object",
+          "description": "v0.8+. F14 (Model-migration API breakage) detection configuration.",
+          "properties": {
+            "exceptions": {
+              "type": "array",
+              "description": "Entries that suppress F14. Each is either a file:line location (matches the fired call or read) or an inventory prompt id (suppresses every F14 sub-case on calls carrying that prompt).",
+              "items": { "type": "string" }
+            }
+          }
         }
       }
     },

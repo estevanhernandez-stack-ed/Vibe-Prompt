@@ -1,13 +1,13 @@
 ---
 name: vibe-prompt:audit
-description: This skill should be used when the user says "/vibe-prompt:audit", "audit my prompts", "what's wrong with my prompts", "find prompt smells", "structural prompt review", or wants a structural audit of LLM prompts in their app. Reads `.vibe-prompt/state/inventory.json` (required prerequisite — created by `/vibe-prompt:scan`), applies the F1-F12 rubric (all active in v0.4), writes `.vibe-prompt/state/audit.json` and a human-readable `docs/vibe-prompt/audit-YYYY-MM-DD.md`. Read-only — no source mutation.
+description: This skill should be used when the user says "/vibe-prompt:audit", "audit my prompts", "what's wrong with my prompts", "find prompt smells", "structural prompt review", or wants a structural audit of LLM prompts in their app. Reads `.vibe-prompt/state/inventory.json` (required prerequisite — created by `/vibe-prompt:scan`), applies the F1-F14 rubric (F14 and F6-retiring-model added in v0.8), writes `.vibe-prompt/state/audit.json` and a human-readable `docs/vibe-prompt/audit-YYYY-MM-DD.md`. Read-only — no source mutation.
 ---
 
 # /vibe-prompt:audit
 
 Load `vibe-prompt:guide` first. Then load `references/smell-rubric-f1-f13.md`, `references/audit-report-template.md`, `references/scoring-dimensions.md`, and `vibe-prompt:guide/references/calibration-patterns.md`.
 
-Apply the F1-F12 rubric (F1-F9 active in v0.4; F10-F12 are Phase 4) to the cached inventory. Emit machine-readable findings + human-readable dated report.
+Apply the F1-F14 rubric (F1-F9 since v0.4, F10-F12 injection grading, F13 since v0.6, F14 + F6-retiring-model since v0.8) to the cached inventory. F14 is the one finding that reads call-site source beyond the prompt text. Emit machine-readable findings + human-readable dated report.
 
 ## Inputs
 
@@ -21,8 +21,8 @@ Apply the F1-F12 rubric (F1-F9 active in v0.4; F10-F12 are Phase 4) to the cache
    - If composer.json has `composers[]` (v0.7 shape) with one or more entries → iterate composer-aware findings (F12 and any other findings that consult composition order or `apiParameter`) ONCE PER composer in `composers[]`. For each iteration, set the active composer's `layers[]`, `globalConfidence`, and the composer's `path` (or first path for multi-call-site groups whose `path` is an array of call-site paths).
    - If composer.json has no `composers[]` (v0.6 back-compat shape — only top-level `layers[]`) → run composer-aware findings ONCE as a single-composer iteration. Set `composerIdentifier: null` on emitted findings (back-compat signal for downstream consumers).
    - If composer.json is absent → composer-aware findings (F12) follow the existing absent-composer.json fallback (severity-degrade to high). `composerIdentifier: null` on emitted findings.
-   - Findings emitted from a per-composer iteration carry `composerIdentifier` matching the active composer's path (or first path for multi-call-site groups). Non-composer-aware findings (F1, F1b, F3, F5, F6, F7, F9, F13) run once globally and emit `composerIdentifier: null` regardless.
-2. **Apply rubric.** Walk `references/smell-rubric-f1-f13.md` in order F1 → F1b → F2 → F3 → F4 → F5 → F6 → F7 → F9 → F10 → F11 → F12 → F13. For each smell, run the detection rule against `inventory.json`. If it fires, build a finding object: `{ id, smell, severity, evidence[], recommendation, composerIdentifier }`. Use the recommendation template, filling in concrete values from inventory (file paths, IDs, counts). F11 and F12 are only evaluated when F10 has already fired on the same prompt (F10 is prerequisite). F13 is independent (static analysis on prompt content) and runs after F12. F10, F11, and F12 loop once per composer entry in step 1b's iteration set; each emitted finding's `composerIdentifier` matches the active composer's path.
+   - Findings emitted from a per-composer iteration carry `composerIdentifier` matching the active composer's path (or first path for multi-call-site groups). Non-composer-aware findings (F1, F1b, F3, F5, F6, F6-suspect-model, F6-retiring-model, F7, F9, F13, F14) run once globally and emit `composerIdentifier: null` regardless.
+2. **Apply rubric.** Walk `references/smell-rubric-f1-f13.md` in order F1 → F1b → F2 → F3 → F4 → F5 → F6 → F6-suspect-model → F6-retiring-model → F7 → F9 → F10 → F11 → F12 → F13 → F14. For each smell, run the detection rule against `inventory.json`. If it fires, build a finding object: `{ id, smell, severity, evidence[], recommendation, composerIdentifier }`. Use the recommendation template, filling in concrete values from inventory (file paths, IDs, counts). F11 and F12 are only evaluated when F10 has already fired on the same prompt (F10 is prerequisite). F13 is independent (static analysis on prompt content) and runs after F12. F14 is independent (static analysis on Anthropic call sites) and runs last. F10, F11, and F12 loop once per composer entry in step 1b's iteration set; each emitted finding's `composerIdentifier` matches the active composer's path.
 2b. **F1 registry-kind gate (v0.7).** Before applying F1, inspect `inventory.registry.kind` (added in v0.7):
    - If `registry.kind === "prompt-content"` → F1 fires per its existing detection rule (registry detected AND inline prompts exist). Existing v0.6 behavior.
    - If `registry.kind === "hybrid"` → F1 fires (hybrid registries contain prompt-content; bypassing them is still the F1 smell).
@@ -37,6 +37,12 @@ Apply the F1-F12 rubric (F1-F9 active in v0.4; F10-F12 are Phase 4) to the cache
      - **High** — context7 lookup succeeded AND vendor's published-models list does NOT contain the id (vendor-confirmed not-in-published-list).
      - **Medium** — context7 unavailable; only the bundled list was consulted. Add "verify manually" to recommendation.
    - **Escape hatch:** entries listed in `config.audit.f6.modelIdExceptions[]` are NEVER flagged by F6-suspect-model, even if missing from the bundled list (intentional pre-release / vendor-internal ids).
+   - **F6-retiring-model (v0.8):** for each `modelIdentifiers[*].value`, strip suffixes per `references/known-models.md` Detection rules (date stamp `-YYYYMMDD`, `@YYYYMMDD`, `[1m]`) and look the stripped id up in the **Retirement dates** section of `references/known-models.md`. Compute `daysRemaining = retirementDate − auditDate` in whole UTC days.
+     - Row kind `retired` (or any row with `daysRemaining <= 0` whose kind is `scheduled`) → fire severity **high**.
+     - `0 < daysRemaining <= 60` → fire severity **medium** (a `floor` "not sooner than" date inside the window still fires).
+     - A `floor` date already passed → fire **medium** with `floor passed; re-check the deprecations page` in evidence (the bundled list is the likely stale party).
+     - Otherwise no finding. `config.audit.f6.modelIdExceptions[]` does NOT suppress F6-retiring-model.
+     - Build finding `{ id: "F6-retiring-model", severity, evidence: { modelValue, occurrences[], retirementDate, retirementDateKind, daysRemaining, listLastUpdated }, recommendation: <template from rubric> }`. Friction-log `f6-retiring-model-detected` (medium).
 4b. **F9 date-grounding check.** For each prompt in inventory (registry entries + inline prompts):
    - **Step A — Date-intent match:** scan the prompt's content + any `templatedVars` entries. Check for:
      - Keyword regex: `\b(?:birth ?date|birthday|birth ?day|transit|natal|nativity|current|today|now|year|month|age|when)\b` (case-insensitive)
@@ -107,6 +113,19 @@ Apply the F1-F12 rubric (F1-F9 active in v0.4; F10-F12 are Phase 4) to the cache
    - **Fire F13 when:** Step A matched AND Step B found NONE of the declarations (i.e., absence is total). Build finding `{ id: "F13", severity: "medium", evidence: { promptId, promptLocation, detectedCues: [<cue labels>], missingDeclarations: [<list of declarations looked for but not found>] }, recommendation: <template from rubric §F13> }`.
    - **F13 is independent of F10/F11/F12** — runs on every prompt regardless of user-var presence. Its concern is output-shape ambiguity, not injection surface.
 
+4g. **F14 model-migration API breakage detection (v0.8, static — no LLM).** Rules and sources live in `references/smell-rubric-f1-f13.md` §F14. Walk:
+   - **Read F14 exception list:** load `audit.f14.exceptions` (string array; each entry a `file:line` or an inventory prompt id). Matching hits are skipped.
+   - **Candidate files:** union of every file the inventory references (registry location, `inlinePrompts[*].file`, `modelIdentifiers[*].occurrences[*].file`). Re-read each from the target source (as F2 does). Keep files that contain an Anthropic Messages call: `@anthropic-ai/sdk` / Python `anthropic` import plus `messages.create(` / `messages.stream(` / `messages.parse(` (including `beta.messages.*` and token counting), or a raw request to `api.anthropic.com/v1/messages`.
+   - **Per call, check four sub-cases:**
+     - `F14-thinking-param` — request sets `thinking` with `type: "disabled"` or `type: "enabled"` (`adaptive` is fine).
+     - `F14-forced-tool-choice` — request sets `tool_choice` with `type: "any"` or `type: "tool"` (`auto` / `none` are fine).
+     - `F14-legacy-computer-tool` — a `tools[]` entry has `type: "computer_20251124"`. Skip when the client is the Bedrock SDK (Bedrock still accepts it).
+     - `F14-positional-content-read` — `content[0]` (or `content[-1]`, `.content.at(0)`) read off a value that traces to THIS Anthropic call's response (one assignment hop + one function-return hop). Reading by `type` (`.find(b => b.type === "text")`, a `type` check on the same block) does not fire.
+   - **False-positive guards (must not fire):** `content[0]` on an MCP `callTool` / `call_tool` result (real negative: `626MCP-VsCodeExtension/vscode-extension/src/statusBar.ts:136`); any OpenAI / Gemini / other-vendor response; OpenAI `tool_choice: 'auto'` on a request to `api.openai.com` (real negative: `Project-626Labs-1/services/ai/providers/openaiProvider.ts:79`); request-side `messages[0].content[0]` construction. If the trace doesn't end at a step-1 Anthropic call, do not fire.
+   - **Model resolution → severity:** literal (or one-hop const) `claude-opus-5-5`, `claude-fable-5-1`, or a later 5.x release → `modelResolution: "resolved"`, **high**. Variable / env var / parameter the audit can't resolve → `"unresolved"`, **high**. Literal older model → `"older-pinned"`, **medium** (latent: breaks when the pin moves).
+   - Build one finding per (call, sub-case): `{ id: "F14", subCase, severity, evidence: { subCase, callLocation, readLocation?, snippet, modelValue, modelResolution }, recommendation: <per-sub-case template from rubric> }`. Recommendations point to the Opus 5.5 migration guide and `/claude-api migrate`; there is no `:remediate` category for F14. Friction-log `f14-migration-breakage-detected` (medium).
+   - **F14 is independent of F10/F11/F12/F13** — it inspects the API call around the prompt, not the prompt text. Out of scope in v0.8 (v0.9 candidates): "think carefully" style lines and "show your reasoning in the output" asks.
+
 5. **Compose summary.** Count findings by severity → `summary.byCategory`. Total → `summary.totalFindings`.
 6. **Compute per-prompt scores.** Per `references/scoring-dimensions.md` and the Score impact sections in `references/smell-rubric-f1-f13.md`:
    - For each prompt in inventory, start each dimension (schemaTightness, personaConsistency, instructionClarity, tokenEfficiency, injectionResistance) at 10.
@@ -155,6 +174,8 @@ Suggested first move: F6 verify-model (cheapest, highest signal).
 
 See `friction-triggers.md`. Highlights:
 - `f6-suspect-model-detected` — high confidence
+- `f6-retiring-model-detected` — medium (v0.8)
+- `f14-migration-breakage-detected` — medium (v0.8)
 - `f2-contradiction-cross-file-attempted` (when v0.1 1-hop trace surfaced what looks like a deeper conflict but couldn't resolve it) — medium
 - `rubric-default-recommendation-felt-generic` (heuristic — the agent's own read of whether the recommendation it just emitted is specific enough)
 

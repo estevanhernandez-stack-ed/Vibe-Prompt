@@ -14,6 +14,8 @@ The category is determined by the audit finding ID:
 | F12 (composition order — critical) | — | Handoff banner only; do not propose |
 | F12 (composition order — high, confidence-degraded) | C (fallback) | Defense block is a reasonable intermediate |
 | F1, F1b, F3, F4, F5, F6, F7 | — | Inline-only recommendation in v0.5 |
+| F6-suspect-model, F6-retiring-model (v0.7 / v0.8) | — | Inline-only recommendation. A model choice is the user's call, not a diff |
+| F14 (model-migration API breakage, v0.8) | — | Inline-only recommendation. The remediation path is `/claude-api migrate` or the Opus 5.5 migration guide; no `:remediate` category |
 
 ---
 

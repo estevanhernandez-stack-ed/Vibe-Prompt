@@ -1,4 +1,6 @@
-# F1-F7 smell rubric — audit
+# F1-F14 smell rubric — audit
+
+The filename stays `smell-rubric-f1-f13.md` for path stability; F14 and F6-retiring-model (v0.8) live here too.
 
 Each finding has: ID, Smell, Severity default, Detection rule (reads from inventory.json), Recommendation template. The audit SKILL applies these in order.
 
@@ -143,6 +145,50 @@ The detection is best-effort and may require the agent to read the actual conten
 - A vendor SDK that maps friendly names to ids (e.g., `gpt-4o-latest` → some date-stamped id). Add the alias to the bundled list or the exceptions array.
 
 **Friction trigger:** `f6-suspect-model-detected` (medium) — emitted on every fire so `/evolve` sees the cadence; positive when the user confirms a typo was caught, low when the user reports a false-positive (signals bundled-list update needed).
+
+## F6-retiring-model — Model id is retired or retiring soon (v0.8)
+
+**Severity (default):** medium when the model retires within 60 days of the audit date; **high** when the model is already retired as of the audit date.
+**Detection method:** static lookup against the **Retirement dates** section of `references/known-models.md`. No network call.
+
+**Why it's there.** A retired model id is a production outage waiting for a deploy: requests to a retired model fail outright. A retiring one is the same outage with a date on it. F6-suspect-model can't see either case, because a retired id is a real, published id. It was just published a while ago. The vendors publish retirement schedules (Anthropic's deprecations page, Google's Gemini deprecations page), and the bundled list mirrors them with a last-updated stamp, the same staleness discipline F6-suspect-model uses.
+
+**Detection rule:**
+1. For each `inventory.modelIdentifiers[*]`, strip the id per `references/known-models.md` Detection rules (case-insensitive; date suffix `-YYYYMMDD`, `@YYYYMMDD`, and `[1m]`-style suffixes removed).
+2. Look up the stripped id in the Retirement dates tables. Not present → no finding.
+3. Compute `daysRemaining = retirementDate − auditDate` (whole days, audit date in UTC).
+4. **Fire high** when the row's kind is `retired` (or `scheduled` with `daysRemaining <= 0`). The call already fails, or will on its next request.
+5. **Fire medium** when `0 < daysRemaining <= 60`, for any kind. A `floor` ("not sooner than") date inside the window still fires: the vendor has committed to nothing past it, and the vendor's own notice period is 60 days.
+6. `daysRemaining > 60` → no finding.
+7. A `floor` date that has already passed without the vendor moving the model to retired: fire **medium**, not high, and note `floor passed; re-check the deprecations page` in evidence. The bundled list is the likely stale party.
+8. Suppression: `config.audit.f6.modelIdExceptions[]` does NOT suppress F6-retiring-model. That array means "this id is real"; retirement is a separate fact. v0.8 ships no suppression key for F6-retiring-model on purpose: the only fix for a retiring model is to move off it.
+
+**Evidence:**
+- `evidence.modelValue` — the id as written in source (unstripped)
+- `evidence.occurrences[]` — every file + line where the id appears
+- `evidence.retirementDate` — ISO date from the Retirement dates table
+- `evidence.retirementDateKind` — `retired` | `scheduled` | `floor`
+- `evidence.daysRemaining` — integer; zero or negative when already retired
+- `evidence.listLastUpdated` — the bundled list's last-updated stamp
+
+**Recommendation template:**
+> `{modelValue}` {retired on | is scheduled to retire on | is guaranteed only until} {retirementDate} ({daysRemaining} days {remaining | ago}) per the vendor's deprecation schedule (list last-updated {listLastUpdated}). {if retired: "Requests to this model fail today."} Move every occurrence ({N}: {file:line list}) to the vendor's recommended replacement (see the deprecations page) and re-run `/vibe-prompt:eval` on the affected prompts before shipping: a model swap is a behavior change, not a rename. For Anthropic ids, `/claude-api migrate` applies the id swap plus any breaking parameter changes; then re-audit so F14 can check the new call shape.
+
+**Score impact (v0.8):**
+- Penalizes instruction-clarity (−1) per fired finding, same as F6 and F6-suspect-model.
+- Rationale: the model is part of the instruction. A model that will stop answering on a known date makes every prompt routed to it an instruction with an expiry the prompt doesn't state.
+
+**Worked examples (from the v0.8 build, audit date 2026-09-22):**
+- `6deux6/config.json:3` — `claude-haiku-4-5-20251001` strips to `claude-haiku-4-5`, floor 2026-10-15, 23 days → **medium**.
+- `Project-626Labs-1/services/ai/ClaudeProvider.ts:24` — `claude-3-5-sonnet-20241022` strips to `claude-3-5-sonnet`, retired 2025-10-28 → **high**.
+
+**Edge cases:**
+- The same id may be both a consolidation target (F6, 2+ occurrences) and retiring. Both fire; they are different problems with one shared fix site.
+- Partner platforms (Bedrock, Google Cloud) set their own retirement dates. The Anthropic table covers Anthropic-operated platforms; a Bedrock-prefixed id gets the Anthropic date as an approximation and the evidence notes it.
+
+**Cross-plugin handoff:** none.
+
+**Friction trigger:** `f6-retiring-model-detected` (medium) on every fire, so `/evolve-prompt` sees how often the Retirement table is paying for itself and how often it's stale.
 
 ## F7 — Hybrid call sites
 
@@ -335,11 +381,86 @@ The detection is best-effort and may require the agent to read the actual conten
 
 **Cross-plugin handoff:** none. F13 is plugin-internal — :remediate handles fix routing.
 
+## F14 — Model-migration API breakage (v0.8)
+
+**Severity (default):** high when the call's model resolves to a 5.5 / 5.1-era Claude model or can't be resolved statically; medium ("latent") when the call is pinned to an older model.
+**Detection method:** static, reads source. No LLM call, no network call.
+**Score impact (v0.8):** instruction-clarity −1, schema-tightness −1.
+
+**Why it's there.** Claude Opus 5.5 (`claude-opus-5-5`, released 2026-09-22) and Claude Fable 5.1 (`claude-fable-5-1`) reject request shapes that earlier models accepted, and change the response shape code reads from. None of this shows up in the prompt text, so F1-F13 can't see it. A prompt can be flawless and the call around it can still 400 on the first request after the model id moves, or return an empty string with no error. That second failure is the one that ships. Sources:
+
+- https://platform.claude.com/docs/en/models/opus-5-5/migration-guide
+- https://platform.claude.com/docs/en/models/opus-5-5/whats-new-opus-5-5
+
+The four breaking patterns, per those pages:
+
+1. **Thinking can't be disabled.** Adaptive thinking is always on. `thinking: {type: "disabled"}` and `thinking: {type: "enabled", budget_tokens: N}` both return a 400 `invalid_request_error`. Effort (`output_config.effort`) is the control. Applies to Opus 5.5 and Fable 5.1.
+2. **Forced tool use is not supported.** `tool_choice` of `{type: "any"}` or `{type: "tool", name: ...}` returns a 400, including on the token-counting endpoint. `auto` (the default) and `none` are accepted. Applies to Opus 5.5 and Fable 5.1.
+3. **The `computer_20251124` tool is not accepted** on the Claude API and Google Cloud; the replacement is the `computer_toolset_20260801` toolset (no beta header, no `name`, no display dimensions). Amazon Bedrock still accepts `computer_20251124` on Opus 5.5. The whats-new page scopes this change to Opus 5.5.
+4. **Responses can begin with a `thinking` block.** Every response may open with one or more `thinking` blocks (empty text at the default `display: "omitted"`), and text between tool calls now arrives as progress-update `thinking` blocks. Positional reads (`response.content[0].text`, `content[0].type === 'text' ? content[0].text : ''`) silently return empty or throw. Read content blocks by `type`.
+
+**Detection rule (static):**
+
+1. **Candidate files.** The union of every file the inventory references (registry location, `inlinePrompts[*].file`, `modelIdentifiers[*].occurrences[*].file`). Keep a file only if it contains an Anthropic Messages call:
+   - `@anthropic-ai/sdk` import (TS/JS) or `anthropic` package import (Python: `import anthropic`, `from anthropic import ...`), AND a `messages.create(`, `messages.stream(`, or `messages.parse(` call (including `beta.messages.*` and `messages.count_tokens` / `countTokens`), OR
+   - a raw HTTP call (`fetch`, `axios`, `requests`, `httpx`) whose URL contains `api.anthropic.com/v1/messages`.
+2. **Per call, check the four sub-cases:**
+   - **`F14-thinking-param`** — the request object sets `thinking` with `type: "disabled"` or `type: "enabled"` (with or without `budget_tokens`). `type: "adaptive"` does not fire.
+   - **`F14-forced-tool-choice`** — the request object sets `tool_choice` with `type: "any"` or `type: "tool"`. `auto` and `none` do not fire.
+   - **`F14-legacy-computer-tool`** — a `tools[]` entry has `type: "computer_20251124"` (or sends the `computer-use-2025-11-24` beta). If the client is the Bedrock SDK (`AnthropicBedrock`, `@anthropic-ai/bedrock-sdk`, `anthropic.AnthropicBedrock`) do not fire: Bedrock still accepts the tool.
+   - **`F14-positional-content-read`** — the code reads `content[0]` (or `content[-1]` / `.content.at(0)`) off a value that **traces back to the Messages response** of the call in step 1: the awaited return of `messages.create` / `.parse`, the `finalMessage()` of a stream, or the parsed JSON body of the raw `/v1/messages` fetch. Follow at most one assignment hop (`const res = await client.messages.create(...)`; `res.content[0].text`) plus one function return hop. `.find(b => b.type === 'text')`, `.filter(...)`, or an explicit `type` check on the same block before reading `.text` does not fire.
+3. **Resolve the model** for each fired call from the request's `model` field:
+   - A string literal, or a const that resolves in the same file or a one-hop import. `claude-opus-5-5`, `claude-fable-5-1`, or a later release in the 5.x line (suffix-stripped per `references/known-models.md`, Bedrock `anthropic.` prefix included) → `modelResolution: "resolved"`, severity **high**. `claude-mythos-5-1` is not named in the breaking-change text; treat it as `unresolved` (high) until the docs say otherwise.
+   - A variable, env var (`process.env.*`, `os.environ[...]`), function parameter, or config lookup the audit can't resolve → `modelResolution: "unresolved"`, severity **high**. The code doesn't pin the model, so whoever sets that value next can break it.
+   - A literal older model (Opus 5 and earlier, Sonnet 5, Haiku 4.5, Fable 5) → `modelResolution: "older-pinned"`, severity **medium** ("latent"): it works today and breaks the day the pin moves.
+4. **Suppression.** Read `audit.f14.exceptions` (string array) from config. An entry is either a `file:line` (matches the fired call's or read's location) or a prompt id from the inventory (suppresses every F14 sub-case whose call carries that prompt). Suppressed hits are skipped, not downgraded.
+
+**Critical false-positive guards (must NOT fire):**
+
+- **MCP tool results.** `result.content[0].text` where `result` came from an MCP client's `callTool(...)` / `client.callTool` / `session.call_tool`. The MCP `CallToolResult` also has a `content[]` array; positional reads on it are not Anthropic response reads. Real negative: `626MCP-VsCodeExtension/vscode-extension/src/statusBar.ts:136` (`JSON.parse(result.content[0].text)` on a `callTool` result).
+- **Any non-Anthropic response.** OpenAI (`choices[0]`), Gemini (`candidates[0].content.parts[0]`), and any other vendor object. A `content[0]` read fires only when step 2's trace ends at an Anthropic Messages call.
+- **Non-Anthropic `tool_choice`.** OpenAI's `tool_choice: 'auto'` (and OpenAI's `'required'`) is a different API. Real negative: `Project-626Labs-1/services/ai/providers/openaiProvider.ts:79` (`body.tool_choice = 'auto'` on a request posted to `api.openai.com/v1/chat/completions`). F14-forced-tool-choice only inspects request objects that flow into a step-1 Anthropic call.
+- **Request-side `content[0]`.** Building `messages[0].content[0]` for the outgoing request is not a response read.
+
+**Evidence:**
+- `evidence.subCase` — `F14-thinking-param` | `F14-forced-tool-choice` | `F14-legacy-computer-tool` | `F14-positional-content-read` (also mirrored to the finding-level `subCase` field)
+- `evidence.callLocation` — file + line of the Messages call
+- `evidence.readLocation` — file + line of the positional read (positional-content-read only)
+- `evidence.snippet` — the offending expression, trimmed to one line
+- `evidence.modelValue` — the resolved model id, or the unresolved expression (e.g. `process.env.CLAUDE_MODEL`)
+- `evidence.modelResolution` — `resolved` | `unresolved` | `older-pinned`
+
+**Recommendation template (per sub-case):**
+> **F14-thinking-param** — `{callLocation}` sends `thinking: {snippet}`, which Claude Opus 5.5 and Claude Fable 5.1 reject with a 400. Remove the `thinking` field (or send `{type: "adaptive"}`) and set `output_config.effort` instead; where thinking was disabled to save tokens, use a lower effort. Every response can then begin with `thinking` blocks, so also check the response reads (F14-positional-content-read).
+>
+> **F14-forced-tool-choice** — `{callLocation}` sends `tool_choice: {snippet}`, which Claude Opus 5.5 and Claude Fable 5.1 reject with a 400. Switch to `tool_choice: {type: "auto"}` with `strict: true` on the tool (strict tool use) or move the schema to structured outputs, and say in the prompt when the tool applies.
+>
+> **F14-legacy-computer-tool** — `{callLocation}` declares `computer_20251124`, which Claude Opus 5.5 rejects on the Claude API and Google Cloud. Declare `{type: "computer_toolset_20260801"}` (no beta header, no name, no display size) and update the agent loop for member `tool_use` blocks and `toolset_name` on results. Bedrock clients can keep the old tool.
+>
+> **F14-positional-content-read** — `{readLocation}` reads `{snippet}` by position off the Messages response from `{callLocation}`. Newer Claude models can open a response with a `thinking` block, so position 0 is no longer the text: this returns empty or throws with no API error. Select blocks by type: `response.content.find(b => b.type === "text")?.text` (TS) or `next((b.text for b in response.content if b.type == "text"), "")` (Python). In tool-use loops, pass `thinking` blocks back unmodified.
+>
+> {if modelResolution is older-pinned: "Latent: the pinned model `{modelValue}` accepts this today. It breaks the day the pin moves to Opus 5.5 or Fable 5.1."}{if unresolved: "The model comes from `{modelValue}` and can't be resolved statically, so this is treated as live."}
+>
+> Full migration path: https://platform.claude.com/docs/en/models/opus-5-5/migration-guide. In Claude Code, `/claude-api migrate` applies these changes across the codebase and produces a verification checklist.
+
+**Score impact rationale.** instruction-clarity −1: the call carries an instruction to the API (disable thinking, force this tool) that the target model can't honor, so the effective request differs from the written one. schema-tightness −1: a positional read is an output-contract fragility. The code assumes a response shape the API no longer guarantees. Lighter than F13's schema −2 because the prompt's own output declaration is intact; the fragility sits in the reader. Applied once per fired sub-case, per prompt routed through the call; when the call can't be tied to an inventoried prompt, the finding is recorded with no per-prompt deduction.
+
+**Edge cases:**
+- A shared client wrapper (one `messages.create` used by many prompts) fires once per sub-case at the wrapper, not once per prompt. Each prompt routed through it still takes the score deduction.
+- Streaming code that accumulates only `text_delta` events is safe for the positional case; code that indexes `content_block_start` events by `index === 0` expecting text fires.
+- An SDK helper that already selects text by type (e.g. a local `getText(res)` that filters by `type`) does not fire; follow the one function hop before firing.
+
+**Remediation path:** no `:remediate` category in v0.8. The fix is `/claude-api migrate` or the migration guide. **Cross-plugin handoff:** none.
+
+**Out of scope for v0.8 (v0.9 candidates):** prompt-text style advisories from the Opus 5.5 prompting guide, such as "think carefully" / "think step by step" lines that adaptive thinking makes redundant, and "show your reasoning in the output" asks that can trigger a `reasoning_extraction` refusal. Those are prompt-content smells, not API breakage, and they need their own calibration run before they fire.
+
+**Friction triggers:** `f14-migration-breakage-detected` (medium) on every fire; `f14-fired-on-non-anthropic-response` (low) when the user reports the positional-read trace landed on an MCP or other-vendor object.
+
 ---
 
 ## Per-prompt audit composite
 
-After all F1–F13 detections, compute the per-prompt audit composite:
+After all F1–F14 detections, compute the per-prompt audit composite:
 
 1. **Start each dimension at 10** (perfect score — no findings = no deductions).
 2. **For each fired finding, apply its Score impact deduction** to the affected dimensions.

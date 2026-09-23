@@ -88,7 +88,7 @@ Run `/vibe-prompt:grade` to apply these overrides.
 
 ## Recommended sequence of fixes
 
-{prioritize by: severity × estimated effort. Default ordering — F6 verify first (cheapest), then F12 (critical, one composer-order fix), then F10/F11 (high/medium, add directives), then F9 (high, inject date anchor in global directive), then F4, then F2+F3+F5 together, then F1, then F7. Adjust per app.}
+{prioritize by: severity × estimated effort. Default ordering — F6-retiring-model high (retired model: requests already fail) and F14 high (400s or empty reads on 5.5-era models) first, then F6 verify (cheapest), then F12 (critical, one composer-order fix), then F10/F11 (high/medium, add directives), then F9 (high, inject date anchor in global directive), then F4, then F2+F3+F5 together, then F1, then F7, then F6-retiring-model medium and F14 medium (latent) on the calendar. Adjust per app.}
 
 {if any of F10-F12 fired}
 **Injection-vulnerability note.** F10, F11, or F12 fired on this inventory. Each of these findings carries `handoffHint: "vibe-sec:audit"` — cross-plugin review of app-level user-input handling is recommended alongside the prompt-content fixes. Run `/vibe-sec:audit` in the app to complete the picture.
@@ -114,7 +114,7 @@ Run `/vibe-prompt:grade` to apply these overrides.
 - Always use the smell ID + severity in the headline table for grep-ability.
 - Evidence sections cite `file:line` format so editors auto-link.
 - Recommendation prose must be specific to the target app — fill in the recommendation template variables from inventory data, do not leave placeholders.
-- The "Recommended sequence" section orders by `severity × cheapness`. F6 verify-model is always first if F6 fired (5-minute test, highest signal). F12 is next if it fired (critical, one composer-order restructure).
+- The "Recommended sequence" section orders by `severity × cheapness`. A high F6-retiring-model or high F14 goes first when present: both are live production failures, not smells. After those, F6 verify-model is first if F6 fired (5-minute test, highest signal). F12 is next if it fired (critical, one composer-order restructure).
 - Never invent findings not in `audit.json`. The report is a render of the state file; the state file is the source of truth.
 - **Score indicator helper** — `indicator(n)`: returns ✓ if n ≥ 9, · if 5 ≤ n ≤ 8, ⚠ if n ≤ 4. Apply to every score cell in the Per-prompt scores table.
 - The Per-prompt scores section is omitted if `audit.auditGrade` is absent (e.g., a v0.2-era state file with no scoring data).
@@ -131,6 +131,18 @@ Use this when `F6-suspect-model` fires (model id referenced in prompt is not in 
 **Why it matters.** A suspect model id either (a) silently falls back to a default in the SDK (wasting cost on a model you didn't intend to call) or (b) returns a vendor error at runtime (the call fails in production). Typos in model ids are a common failure mode that static analysis catches cheaply.
 
 **Recommended fix.** Verify the id with the vendor's current model catalog. If the id is real but new, add it to `config.audit.f6.modelIdExceptions` (string array) so F6 stops firing on it. If the id is a typo, fix it at the source — search the repo for `{evidence.suspectModelId}` to find all occurrences. If the model is internal/private, add it to the exceptions array.
+
+## F6-retiring-model render template (v0.8)
+
+Use this when `F6-retiring-model` fires (referenced model id, suffix-stripped, is in the Retirement dates section of `known-models.md` and is retired or retires within 60 days).
+
+### F6-retiring-model — Model retired or retiring ({Severity})
+
+**Evidence.** `{evidence.modelValue}` appears at {evidence.occurrences as file:line list}. Vendor schedule: {evidence.retirementDateKind — "retired on" | "scheduled to retire on" | "guaranteed only until (not-sooner-than floor)"} {evidence.retirementDate} ({evidence.daysRemaining} days). Bundled list last-updated {evidence.listLastUpdated}.
+
+**Why it matters.** Requests to a retired model fail. A retiring model is the same failure with a date on it, and the vendor notice period is 60 days, so a medium today is a high inside one release cycle.
+
+**Recommended fix.** Move every occurrence to the vendor's recommended replacement (Anthropic: the deprecations page; Google: the Gemini deprecations page), then re-run `/vibe-prompt:eval` on the affected prompts: a model swap is a behavior change. For Anthropic ids, `/claude-api migrate` handles the swap plus breaking parameter changes; re-run `/vibe-prompt:audit` afterward so F14 checks the new call shape.
 
 ## F9-F12 finding render templates
 
@@ -185,6 +197,16 @@ Use these for the per-finding prose sections when F9-F12 fire. Substitute concre
 **Why it matters.** Placeholder blocks and templated vars cue the model that *something* fits there but leave the shape unspecified. Different runs produce prose, JSON, markdown, or hybrids — value-type drift becomes a property of the prompt, not a bug to chase. Schema-tightness suffers; downstream parsing breaks unpredictably.
 
 **Recommended fix.** Add one line near the top of the prompt: `[OUTPUT FORMAT: prose, no JSON unless explicitly requested]` (or `[OUTPUT FORMAT: JSON matching {{schemaName}}]`, or `[OUTPUT_SCHEMA: ...]` if a tighter contract exists). If the flexibility is intentional (creative-discovery, evaluator-judge), add `{evidence.promptId}` to `audit.f13.outputFormatExceptions` in `.vibe-prompt/config.json` instead — the detection respects the opt-out and stops firing.
+
+### F14 — Model-migration API breakage ({Severity})
+
+Render one block per fired (call, sub-case). Group blocks under one heading per call site when a call fires more than one sub-case.
+
+**Evidence.** `{evidence.subCase}` at `{evidence.callLocation}`{if readLocation: ", read at `{evidence.readLocation}`"}: `{evidence.snippet}`. Model: `{evidence.modelValue}` ({evidence.modelResolution}). {if older-pinned: "Latent: the pinned model accepts this today; it breaks when the pin moves to Opus 5.5 or Fable 5.1."}{if unresolved: "Model can't be resolved statically, so this is treated as live."}
+
+**Why it matters.** Claude Opus 5.5 and Claude Fable 5.1 reject disabled/manual thinking and forced `tool_choice` with a 400, Opus 5.5 rejects `computer_20251124` on the Claude API and Google Cloud, and responses can open with a `thinking` block, so a `content[0]` read returns empty with no error. The prompt can be flawless and the call still breaks.
+
+**Recommended fix.** Use the per-sub-case text from `audit.json` `recommendation` (sourced from the rubric's F14 template). Full path: https://platform.claude.com/docs/en/models/opus-5-5/migration-guide, or `/claude-api migrate` in Claude Code. No `:remediate` category covers F14. Per-hit suppression: add the `file:line` or prompt id to `audit.f14.exceptions`.
 
 {if voiceFrameContradictions is present in any Category B finding}
 

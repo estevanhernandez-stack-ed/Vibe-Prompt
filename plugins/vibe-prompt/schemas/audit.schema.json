@@ -16,10 +16,18 @@
           "id": {
             "enum": [
               "F1", "F1b", "F2", "F3", "F4", "F5", "F6", "F6-suspect-model",
-              "F7", "F9", "F10", "F11", "F12", "F13"
+              "F7", "F9", "F10", "F11", "F12", "F13",
+              "F6-retiring-model", "F14"
             ]
           },
           "smell": { "type": "string" },
+          "subCase": {
+            "enum": [
+              "F14-thinking-param", "F14-forced-tool-choice",
+              "F14-legacy-computer-tool", "F14-positional-content-read"
+            ],
+            "description": "v0.8+. F14 only. Which model-migration breakage pattern fired. Absent on every other finding id."
+          },
           "severity": { "enum": ["high", "medium", "low", "advisory", "critical"] },
           "handoffHint": { "type": "string" },
           "originFilteredOut": { "type": "boolean" },
@@ -76,7 +84,28 @@
               "properties": {
                 "file": { "type": "string" },
                 "line": { "type": "integer" },
-                "note": { "type": "string" }
+                "note": { "type": "string" },
+                "modelValue": {
+                  "type": "string",
+                  "description": "v0.8+. F6-retiring-model / F14. The model id as written in source, or the unresolved expression (F14)."
+                },
+                "modelResolution": {
+                  "enum": ["resolved", "unresolved", "older-pinned"],
+                  "description": "v0.8+. F14. How the call's model was resolved statically; drives severity (resolved / unresolved = high, older-pinned = medium)."
+                },
+                "retirementDate": {
+                  "type": "string",
+                  "format": "date",
+                  "description": "v0.8+. F6-retiring-model. Retirement / shutdown date (or not-sooner-than floor) from known-models.md."
+                },
+                "retirementDateKind": {
+                  "enum": ["retired", "scheduled", "floor"],
+                  "description": "v0.8+. F6-retiring-model. Kind of the retirementDate row."
+                },
+                "daysRemaining": {
+                  "type": "integer",
+                  "description": "v0.8+. F6-retiring-model. retirementDate minus audit date in whole days; zero or negative when already retired."
+                }
               }
             }
           },
