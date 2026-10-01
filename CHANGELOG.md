@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.8.1] — 2026-09-30
+
+Sonnet 5.5 era refresh. Claude Sonnet 5.5 (`claude-sonnet-5-5`) is the current Sonnet on the models overview as of 2026-09-30, and it carries the same request-shape breaks as Opus 5.5 and Fable 5.1 with one twist: the thinking-off replacement is `between_tools`, not `adaptive`, and `between_tools` is itself rejected at `xhigh` / `max`. Same day, Anthropic deprecated Claude Sonnet 4.5 with a hard retirement date. All additive: no schema changes, no new sub-cases, no changes to v0.8 commands or state files.
+
+### Changed
+
+- **F14 resolves Sonnet 5.5 as 5.5-era.** A literal `claude-sonnet-5-5` pin now resolves to `modelResolution: "resolved"` (high) alongside `claude-opus-5-5` and `claude-fable-5-1`; `claude-sonnet-5` stays `older-pinned`. Rubric §F14 and audit step 4g name Sonnet 5.5 in the thinking-param and forced-tool-choice breaks, and the recommendation templates read "Claude Opus 5.5, Claude Fable 5.1, and Claude Sonnet 5.5 reject".
+- **F14-thinking-param gets a Sonnet-specific fix line.** On Sonnet 5.5, `disabled` is still a 400, but a route that must stay thinking-off sends `thinking: {type: "between_tools"}` at effort `high` or below; `between_tools` at `xhigh` / `max`, or sent with `display` / `budget_tokens` / `block_binding`, is a 400 too. `between_tools` itself does not fire the sub-case.
+- **F14-legacy-computer-tool scope.** `computer_20251124` is confirmed rejected on Opus 5.5 and Sonnet 5.5 on the Claude API / Google Cloud (Bedrock still accepts it on both). The Fable 5.1 what's-new page does not mention the tool either way, so Fable 5.1 is recorded as unconfirmed rather than asserted; the sub-case still fires per call.
+- **Recommendation and report templates** link the Sonnet 5.5 migration guide next to the Opus 5.5 one; the latent line reads "moves to Opus 5.5, Fable 5.1, or Sonnet 5.5".
+- **`known-models.md` refreshed (last-updated 2026-09-30).** `claude-sonnet-5-5` joins Current (with Bedrock `anthropic.claude-sonnet-5-5`); `claude-sonnet-5` moves to Legacy. Retirement dates: `claude-sonnet-4-5` moves from floor 2026-09-29 to **scheduled 2026-11-30** (deprecated 2026-09-30, replacement `claude-sonnet-5-5`), so F6-retiring-model fires medium on it from 2026-10-01 and high from 2026-11-30; `claude-sonnet-5-5` floor 2027-09-28 added; `claude-sonnet-5` floor 2027-06-30 unchanged. Haiku 4.5 is still the current Haiku (floor 2026-10-15); no Haiku 5.x id appears on the vendor pages. Sources re-fetched 2026-09-30 and cited per line.
+
+### Known gaps (v0.9 candidates)
+
+- **Advisor-tool pairing rejections.** A `claude-sonnet-5-5` executor returns a 400 with a Claude Opus 4.8, Opus 4.7, or Sonnet 5 advisor. That is a second model id inside a `tools[]` entry against a beta pairing table; candidate `F14-advisor-pairing` once it settles.
+
+### Tests
+
+- F14 and F6-retiring-model contract tests extended, still reading from the rubric, SKILL, and `known-models.md`: Sonnet 5.5 in the resolved set on both surfaces and in the replay, the `between_tools` note, the legacy-computer-tool scope, the advisor out-of-scope note, and the Sonnet 5.5 what's-new + migration guide citations; `claude-sonnet-5-5` is a known id and Current, `claude-sonnet-5` is Legacy, the Sonnet 4.5 row is `scheduled` 2026-11-30 with a 60-day-window replay, and no Haiku 5.x id is listed.
+
 ## [0.8.0] — 2026-09-22
 
 Opus 5.5 era readiness. Claude Opus 5.5 (`claude-opus-5-5`) and Claude Fable 5.1 (`claude-fable-5-1`) reject request shapes earlier models accepted and can open a response with a `thinking` block. None of that is visible in the prompt text, so F1-F13 couldn't see it. v0.8 adds two static findings for the ways a model change breaks a working app without touching a single prompt, refreshes the bundled model list against the vendor docs, and closes GitHub issue #1. No breaking changes to v0.7 commands, schemas, or state files.
