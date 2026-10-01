@@ -17,6 +17,10 @@ Asserts:
   7. Style advisories are declared out of scope (v0.9 candidates)
   8. audit/SKILL.md carries an F14 step with the same sub-cases and guards
   9. The rubric walk order in audit/SKILL.md ends in F14
+ 10. v0.8.1: Sonnet 5.5 joins the resolved set, the thinking-param fix on
+     Sonnet 5.5 is between_tools (rejected at xhigh/max), the legacy
+     computer-tool scope names Sonnet 5.5, advisor pairings are out of
+     scope, and the Sonnet 5.5 what's-new + migration guide are cited
 """
 
 import pathlib
@@ -35,6 +39,8 @@ SUB_CASES = [
 
 MIGRATION_GUIDE = "https://platform.claude.com/docs/en/models/opus-5-5/migration-guide"
 WHATS_NEW = "https://platform.claude.com/docs/en/models/opus-5-5/whats-new-opus-5-5"
+SONNET_MIGRATION_GUIDE = "https://platform.claude.com/docs/en/models/sonnet-5-5/migration-guide"
+SONNET_WHATS_NEW = "https://platform.claude.com/docs/en/models/sonnet-5-5/whats-new-sonnet-5-5"
 
 
 def _f14_section(text):
@@ -77,10 +83,48 @@ class TestF14Rubric(unittest.TestCase):
     def test_sources_cited(self):
         self.assertIn(MIGRATION_GUIDE, self.section)
         self.assertIn(WHATS_NEW, self.section)
+        self.assertIn(SONNET_MIGRATION_GUIDE, self.section)
+        self.assertIn(SONNET_WHATS_NEW, self.section)
 
     def test_target_model_ids_named(self):
         self.assertIn("claude-opus-5-5", self.section)
         self.assertIn("claude-fable-5-1", self.section)
+        self.assertIn("claude-sonnet-5-5", self.section)
+
+    def test_sonnet_5_5_in_resolved_set(self):
+        self.assertRegex(
+            self.section,
+            r"`claude-opus-5-5`, `claude-fable-5-1`, `claude-sonnet-5-5`.{0,200}→ `modelResolution: \"resolved\"`",
+        )
+
+    def test_sonnet_5_5_thinking_fix_is_between_tools(self):
+        self.assertIn("between_tools", self.section)
+        self.assertIn("(not `adaptive`)", self.section)
+        self.assertIn("`between_tools` at `xhigh` or `max` is itself a 400", self.section)
+        # The recommendation template carries the Sonnet-specific line too.
+        self.assertIn("a route that must stay thinking-off sends `{type: \"between_tools\"}` instead",
+                      self.section)
+
+    def test_legacy_computer_tool_scope_names_sonnet(self):
+        self.assertIn("confirmed for Opus 5.5 and Sonnet 5.5 on the Claude API / Google Cloud",
+                      self.section)
+        self.assertIn("Fable 5.1 is unconfirmed", self.section)
+        self.assertIn("Amazon Bedrock still accepts `computer_20251124` on Opus 5.5 and Sonnet 5.5",
+                      self.section)
+
+    def test_recommendation_templates_cover_sonnet(self):
+        self.assertEqual(
+            self.section.count("Claude Opus 5.5, Claude Fable 5.1, and Claude Sonnet 5.5 reject with a 400"),
+            2, "thinking-param and forced-tool-choice templates must both name Sonnet 5.5")
+        self.assertIn("Claude Opus 5.5 and Claude Sonnet 5.5 reject on the Claude API and Google Cloud",
+                      self.section)
+        self.assertIn("the pin moves to Opus 5.5, Fable 5.1, or Sonnet 5.5", self.section)
+
+    def test_advisor_pairing_out_of_scope(self):
+        self.assertIn("Advisor-tool pairing rejections", self.section)
+        self.assertIn("F14-advisor-pairing", self.section)
+        for advisor in ["Claude Opus 4.8", "Claude Opus 4.7", "Claude Sonnet 5 as the advisor"]:
+            self.assertIn(advisor, self.section)
 
     def test_severity_rule(self):
         lowered = self.section.lower()
@@ -157,6 +201,12 @@ class TestF14AuditSkill(unittest.TestCase):
         self.assertIn('id: "F14"', self.step)
         self.assertIn("subCase", self.step)
         self.assertIn("modelResolution", self.step)
+
+    def test_step_sonnet_5_5(self):
+        self.assertIn("`claude-sonnet-5-5`, or a later 5.x release", self.step)
+        self.assertIn("between_tools", self.step)
+        self.assertIn("Confirmed rejected on Opus 5.5 and Sonnet 5.5", self.step)
+        self.assertIn("advisor-tool pairing rejections", self.step)
 
     def test_walk_order_ends_with_f14(self):
         self.assertIn("→ F13 → F14.", self.skill)

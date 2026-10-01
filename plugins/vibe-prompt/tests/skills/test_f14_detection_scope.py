@@ -11,6 +11,8 @@ Asserts (rubric §F14 and audit SKILL step 4g agree):
   6. Retired older pins use the retired line (not the latent copy), keep F14
      medium, and cross-reference F6-retiring-model
   7. Replay: the validation positives resolve to the documented severities
+  8. v0.8.1: claude-sonnet-5-5 is in the resolved set on both surfaces and
+     replays to resolved/high; claude-sonnet-5 stays older-pinned
 """
 
 import pathlib
@@ -89,6 +91,11 @@ class TestModelResolution(unittest.TestCase):
     def test_latent_line_conditioned_on_not_retired(self):
         self.assertIn("older-pinned and the model is NOT retired", self.surfaces["rubric"])
 
+    def test_sonnet_5_5_resolved_on_both_surfaces(self):
+        for name, text in self.surfaces.items():
+            self.assertIn("`claude-sonnet-5-5`", text, name)
+            self.assertRegex(text, r"`claude-sonnet-5-5`.{0,200}resolved", name)
+
 
 def _retired_ids():
     text = KNOWN_MODELS.read_text(encoding="utf-8")
@@ -104,7 +111,7 @@ def _resolve(expr, retired):
     if not lit:
         return ("unresolved", "high", False)
     mid = re.sub(r"-\d{8}$", "", lit.group(1).lower())
-    if mid in {"claude-opus-5-5", "claude-fable-5-1"}:
+    if mid in {"claude-opus-5-5", "claude-fable-5-1", "claude-sonnet-5-5"}:
         return ("resolved", "high", False)
     return ("older-pinned", "medium", mid in retired)
 
@@ -134,6 +141,18 @@ class TestReplay(unittest.TestCase):
     def test_live_older_pin_is_latent(self):
         self.assertEqual(
             _resolve("'claude-opus-5'", self.retired),
+            ("older-pinned", "medium", False),
+        )
+
+    def test_sonnet_5_5_pin_is_resolved_high(self):
+        self.assertEqual(
+            _resolve("'claude-sonnet-5-5'", self.retired),
+            ("resolved", "high", False),
+        )
+
+    def test_sonnet_5_pin_stays_latent(self):
+        self.assertEqual(
+            _resolve("'claude-sonnet-5'", self.retired),
             ("older-pinned", "medium", False),
         )
 

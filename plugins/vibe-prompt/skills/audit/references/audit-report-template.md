@@ -202,11 +202,11 @@ Use these for the per-finding prose sections when F9-F12 fire. Substitute concre
 
 Render one block per fired (call, sub-case). Group blocks under one heading per call site when a call fires more than one sub-case.
 
-**Evidence.** `{evidence.subCase}` at `{evidence.callLocation}`{if readLocation: ", read at `{evidence.readLocation}`"}: `{evidence.snippet}`. Model: `{evidence.modelValue}` ({evidence.modelResolution}). {if older-pinned: "Latent: the pinned model accepts this today; it breaks when the pin moves to Opus 5.5 or Fable 5.1."}{if unresolved: "Model can't be resolved statically, so this is treated as live."}
+**Evidence.** `{evidence.subCase}` at `{evidence.callLocation}`{if readLocation: ", read at `{evidence.readLocation}`"}: `{evidence.snippet}`. Model: `{evidence.modelValue}` ({evidence.modelResolution}). {if older-pinned: "Latent: the pinned model accepts this today; it breaks when the pin moves to Opus 5.5, Fable 5.1, or Sonnet 5.5."}{if unresolved: "Model can't be resolved statically, so this is treated as live."}
 
-**Why it matters.** Claude Opus 5.5 and Claude Fable 5.1 reject disabled/manual thinking and forced `tool_choice` with a 400, Opus 5.5 rejects `computer_20251124` on the Claude API and Google Cloud, and responses can open with a `thinking` block, so a `content[0]` read returns empty with no error. The prompt can be flawless and the call still breaks.
+**Why it matters.** Claude Opus 5.5, Claude Fable 5.1, and Claude Sonnet 5.5 reject disabled/manual thinking and forced `tool_choice` with a 400 (on Sonnet 5.5 the thinking-off replacement is `between_tools`, at effort `high` or below), Opus 5.5 and Sonnet 5.5 reject `computer_20251124` on the Claude API and Google Cloud, and responses can open with a `thinking` block, so a `content[0]` read returns empty with no error. The prompt can be flawless and the call still breaks.
 
-**Recommended fix.** Use the per-sub-case text from `audit.json` `recommendation` (sourced from the rubric's F14 template). Full path: https://platform.claude.com/docs/en/models/opus-5-5/migration-guide, or `/claude-api migrate` in Claude Code. No `:remediate` category covers F14. Per-hit suppression: add the `file:line` or prompt id to `audit.f14.exceptions`.
+**Recommended fix.** Use the per-sub-case text from `audit.json` `recommendation` (sourced from the rubric's F14 template). Full path: https://platform.claude.com/docs/en/models/opus-5-5/migration-guide (Sonnet pins: https://platform.claude.com/docs/en/models/sonnet-5-5/migration-guide), or `/claude-api migrate` in Claude Code. No `:remediate` category covers F14. Per-hit suppression: add the `file:line` or prompt id to `audit.f14.exceptions`.
 
 {if voiceFrameContradictions is present in any Category B finding}
 
