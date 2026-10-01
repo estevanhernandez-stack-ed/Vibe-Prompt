@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.2] — 2026-10-01
+
+Known-models correction. `gemini-3-pro-preview` carried a "retired 2026-03-09" row in `known-models.md` through 0.8.1, so F6-retiring-model fired high on any app pinning it. A live `GET /v1beta/models/gemini-3-pro-preview` on 2026-10-01 returned the model (version `3-pro-preview-11-2025`, `generateContent` supported). The row was wrong.
+
+### Fixed
+
+- **`known-models.md`:** the retired row for `gemini-3-pro-preview` is removed and the Current bullet no longer claims a shutdown; last-updated 2026-10-01. The Google retirement section records the correction and the rule it teaches: prefer the live models endpoint over a page read when a row would fire on a model an app serves today.
+
+### Tests
+
+- F6-retiring-model: the documented-dates expectation drops the wrong row, and a new test pins that `gemini-3-pro-preview` has no retirement row.
+
 ## [0.8.1] — 2026-09-30
 
 Sonnet 5.5 era refresh. Claude Sonnet 5.5 (`claude-sonnet-5-5`) is the current Sonnet on the models overview as of 2026-09-30, and it carries the same request-shape breaks as Opus 5.5 and Fable 5.1 with one twist: the thinking-off replacement is `between_tools`, not `adaptive`, and `between_tools` is itself rejected at `xhigh` / `max`. Same day, Anthropic deprecated Claude Sonnet 4.5 with a hard retirement date. All additive: no schema changes, no new sub-cases, no changes to v0.8 commands or state files.

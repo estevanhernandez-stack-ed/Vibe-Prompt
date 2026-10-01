@@ -2,3 +2,7 @@ node_modules/
 .vibe-prompt/
 *.log
 .DS_Store
+
+# Python bytecode from the test suite
+__pycache__/
+*.pyc

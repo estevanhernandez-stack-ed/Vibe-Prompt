@@ -93,7 +93,7 @@ class TestKnownModelsRefresh(unittest.TestCase):
         self.bullets = _bullets(self.text)
 
     def test_last_updated_stamp(self):
-        self.assertIn("**Last-updated:** 2026-09-30", self.text)
+        self.assertIn("**Last-updated:** 2026-10-01", self.text)
 
     def test_sources_cited(self):
         for url in [
@@ -154,12 +154,18 @@ class TestRetirementTable(unittest.TestCase):
             "claude-sonnet-5-5": ("2027-09-28", "floor"),
             "claude-3-5-sonnet": ("2025-10-28", "retired"),
             "claude-opus-4-1": ("2026-08-05", "retired"),
-            "gemini-3-pro-preview": ("2026-03-09", "retired"),
             "gemini-2.5-flash-image": ("2026-10-02", "scheduled"),
         }
         for mid, (date, kind) in expected.items():
             self.assertIn(mid, self.rows)
             self.assertEqual(self.rows[mid], (datetime.date.fromisoformat(date), kind), mid)
+
+    def test_served_models_have_no_retired_row(self):
+        # gemini-3-pro-preview carried a "retired 2026-03-09" row through 0.8.1
+        # while Google served it live (verified 2026-10-01 against the models
+        # endpoint). A retired row on a served model fires F6-retiring-model at
+        # high on every app that pins it, so the row must stay gone.
+        self.assertNotIn("gemini-3-pro-preview", self.rows)
 
     def test_real_positive_6deux6_is_medium(self):
         # 6deux6/config.json:3

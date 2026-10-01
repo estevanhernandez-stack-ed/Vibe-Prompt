@@ -1,6 +1,6 @@
 # Known model identifiers (bundled list)
 
-**Last-updated:** 2026-09-30
+**Last-updated:** 2026-10-01
 
 Bundled list of published model IDs the v0.7 F6-suspect-model sub-finding compares against. When a prompt references a model id NOT in this list (and not in the user's `audit.f6.modelIdExceptions` config array), F6-suspect-model fires at medium severity (or high if context7 is reachable and confirms the id is not in the vendor's published list).
 
@@ -31,7 +31,7 @@ This list goes stale. The v0.1 attempt at suspect-model was removed for this rea
 - `gemini-3-pro-image`
 - `gemini-3.1-pro-preview`
 - `gemini-3-flash-preview`
-- `gemini-3-pro-preview` (shut down 2026-03-09; see Retirement dates)
+- `gemini-3-pro-preview` (served live as of 2026-10-01, version `3-pro-preview-11-2025`; a retired row for it was removed in 0.8.2)
 - `gemini-2.5-pro`
 - `gemini-2.5-flash`
 - `gemini-2.5-flash-lite`
@@ -171,14 +171,13 @@ Anthropic dates apply to Anthropic-operated platforms (Claude API, Claude Platfo
 | `claude-2.1` | `claude-2.1` | 2025-07-21 | retired |
 | `claude-2.0` | `claude-2.0` | 2025-07-21 | retired |
 
-Google Gemini API shutdown dates. Source: https://ai.google.dev/gemini-api/docs/deprecations (fetched 2026-09-22).
+Google Gemini API shutdown dates. Source: https://ai.google.dev/gemini-api/docs/deprecations (fetched 2026-09-22). Correction 2026-10-01: `gemini-3-pro-preview` carried a "retired 2026-03-09" row here through 0.8.1; a live `GET /v1beta/models/gemini-3-pro-preview` on 2026-10-01 returned the model (version `3-pro-preview-11-2025`, generateContent supported), so the row was wrong and is removed. Prefer the live models endpoint over a page read when a row would fire F6-retiring-model on a model an app is serving today.
 
 | Model (stripped) | Full id on the vendor page | Retirement date | Kind |
 |---|---|---|---|
 | `gemini-2.5-flash-image` | `gemini-2.5-flash-image` | 2026-10-02 | scheduled |
 | `gemini-3.1-flash-lite` | `gemini-3.1-flash-lite` | 2027-05-07 | scheduled |
 | `gemini-embedding-001` | `gemini-embedding-001` | 2028-05-14 | scheduled |
-| `gemini-3-pro-preview` | `gemini-3-pro-preview` | 2026-03-09 | retired |
 | `gemini-2.0-flash` | `gemini-2.0-flash`, `gemini-2.0-flash-001` | 2026-06-01 | retired |
 | `gemini-2.0-flash-lite` | `gemini-2.0-flash-lite`, `gemini-2.0-flash-lite-001` | 2026-06-01 | retired |
 | `text-embedding-004` | `text-embedding-004` | 2026-01-14 | retired |
