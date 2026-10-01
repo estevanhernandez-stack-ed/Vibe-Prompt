@@ -1,0 +1,11 @@
+name: release
+on:
+  push:
+    tags: ["v*", "*-v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    uses: estevanhernandez-stack-ed/6deux6/.github/workflows/cut-release.yml@main
