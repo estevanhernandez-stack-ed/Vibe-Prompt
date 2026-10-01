@@ -1,6 +1,6 @@
 # Known model identifiers (bundled list)
 
-**Last-updated:** 2026-09-22
+**Last-updated:** 2026-09-30
 
 Bundled list of published model IDs the v0.7 F6-suspect-model sub-finding compares against. When a prompt references a model id NOT in this list (and not in the user's `audit.f6.modelIdExceptions` config array), F6-suspect-model fires at medium severity (or high if context7 is reachable and confirms the id is not in the vendor's published list).
 
@@ -11,12 +11,13 @@ This list goes stale. The v0.1 attempt at suspect-model was removed for this rea
 - Confidence ladder — context7 lookup elevates from medium to high; bundled-list-only stays medium.
 - Per-app config escape via `audit.f6.modelIdExceptions[]` — intentional pre-release / vendor-internal IDs can be added there to suppress the finding.
 
-**Sources (fetched 2026-09-22):**
-- Anthropic models overview: https://platform.claude.com/docs/en/about-claude/models/overview
-- Anthropic model deprecations: https://platform.claude.com/docs/en/about-claude/model-deprecations
-- Anthropic Opus 5.5 availability (Bedrock ID): https://platform.claude.com/docs/en/models/opus-5-5/whats-new-opus-5-5
-- Google Gemini models: https://ai.google.dev/gemini-api/docs/models
-- Google Gemini deprecations: https://ai.google.dev/gemini-api/docs/deprecations
+**Sources:**
+- Anthropic models overview (fetched 2026-09-30): https://platform.claude.com/docs/en/models/overview
+- Anthropic model deprecations (fetched 2026-09-30): https://platform.claude.com/docs/en/about-claude/model-deprecations
+- Anthropic Opus 5.5 availability (Bedrock ID, fetched 2026-09-22): https://platform.claude.com/docs/en/models/opus-5-5/whats-new-opus-5-5
+- Anthropic Sonnet 5.5 availability (Bedrock ID, fetched 2026-09-30): https://platform.claude.com/docs/en/models/sonnet-5-5/whats-new-sonnet-5-5
+- Google Gemini models (fetched 2026-09-22): https://ai.google.dev/gemini-api/docs/models
+- Google Gemini deprecations (fetched 2026-09-22): https://ai.google.dev/gemini-api/docs/deprecations
 
 ## Google (Gemini)
 
@@ -55,12 +56,12 @@ This list goes stale. The v0.1 attempt at suspect-model was removed for this rea
 
 ## Anthropic (Claude)
 
-Current (models overview, 2026-09-22):
+Current (models overview, 2026-09-30):
 
 - `claude-fable-5-1`
 - `claude-opus-5-5`
-- `claude-sonnet-5`
-- `claude-haiku-4-5` (dated form `claude-haiku-4-5-20251001`)
+- `claude-sonnet-5-5`
+- `claude-haiku-4-5` (dated form `claude-haiku-4-5-20251001`; still the current Haiku, no Haiku 5.x is published)
 
 Legacy, still available:
 
@@ -70,8 +71,9 @@ Legacy, still available:
 - `claude-opus-4-7`
 - `claude-opus-4-6`
 - `claude-opus-4-5` (dated form `claude-opus-4-5-20251101`)
+- `claude-sonnet-5` (moved off the current list 2026-09-30)
 - `claude-sonnet-4-6`
-- `claude-sonnet-4-5` (dated form `claude-sonnet-4-5-20250929`)
+- `claude-sonnet-4-5` (dated form `claude-sonnet-4-5-20250929`; deprecated 2026-09-30, retires 2026-11-30, replacement `claude-sonnet-5-5`; see Retirement dates)
 - `claude-mythos-5-1`
 - `claude-mythos-5`
 - `claude-mythos-preview` (deprecated 2026-06-09, retirement to be announced)
@@ -90,15 +92,16 @@ Retired (kept so F6-suspect-model stays quiet; F6-retiring-model fires on these)
 - `claude-2.1`
 - `claude-2.0`
 
-Platform-prefixed forms (confirmed on the models overview and the Opus 5.5 availability list):
+Platform-prefixed forms (confirmed on the models overview and the Opus 5.5 / Sonnet 5.5 availability lists):
 
 - `anthropic.claude-fable-5-1`
 - `anthropic.claude-opus-5-5`
+- `anthropic.claude-sonnet-5-5`
 - `anthropic.claude-sonnet-5`
 - `anthropic.claude-haiku-4-5`
 
 <!-- Removed 2026-09-22: claude-sonnet-4-7 and claude-haiku-4-6. Neither appears on the models overview or the deprecations page; they were never published ids. -->
-<!-- Unconfirmed 2026-09-22: Bedrock ids for models older than those four, and regional/global Bedrock inference-profile prefixes (e.g. `us.`, `global.`). The overview mentions regional and global endpoints but does not print the prefixed strings. Add via `audit.f6.modelIdExceptions[]` per app until confirmed. -->
+<!-- Unconfirmed 2026-09-22: Bedrock ids for models older than those five, and regional/global Bedrock inference-profile prefixes (e.g. `us.`, `global.`). The overview mentions regional and global endpoints but does not print the prefixed strings. Add via `audit.f6.modelIdExceptions[]` per app until confirmed. -->
 
 ## OpenAI
 
@@ -137,13 +140,13 @@ Feeds F6-retiring-model (v0.8). Key is the suffix-stripped id per the Detection 
 - `scheduled` — the vendor has announced a retirement or shutdown date.
 - `floor` — the vendor commits only to "not sooner than" this date. The model may live longer; the date is the earliest it can go.
 
-Anthropic dates apply to Anthropic-operated platforms (Claude API, Claude Platform on AWS, Microsoft Foundry); Amazon Bedrock and Google Cloud set their own schedules. Source: https://platform.claude.com/docs/en/about-claude/model-deprecations (fetched 2026-09-22).
+Anthropic dates apply to Anthropic-operated platforms (Claude API, Claude Platform on AWS, Microsoft Foundry); Amazon Bedrock and Google Cloud set their own schedules. Source: https://platform.claude.com/docs/en/about-claude/model-deprecations (fetched 2026-09-30).
 
 | Model (stripped) | Dated / full id on the vendor page | Retirement date | Kind |
 |---|---|---|---|
-| `claude-sonnet-4-5` | `claude-sonnet-4-5-20250929` | 2026-09-29 | floor |
 | `claude-haiku-4-5` | `claude-haiku-4-5-20251001` | 2026-10-15 | floor |
 | `claude-opus-4-5` | `claude-opus-4-5-20251101` | 2026-11-24 | floor |
+| `claude-sonnet-4-5` | `claude-sonnet-4-5-20250929` | 2026-11-30 | scheduled |
 | `claude-opus-4-6` | `claude-opus-4-6` | 2027-02-05 | floor |
 | `claude-sonnet-4-6` | `claude-sonnet-4-6` | 2027-02-17 | floor |
 | `claude-opus-4-7` | `claude-opus-4-7` | 2027-04-16 | floor |
@@ -155,6 +158,7 @@ Anthropic dates apply to Anthropic-operated platforms (Claude API, Claude Platfo
 | `claude-fable-5-1` | `claude-fable-5-1` | 2027-09-01 | floor |
 | `claude-mythos-5-1` | `claude-mythos-5-1` | 2027-09-01 | floor |
 | `claude-opus-5-5` | `claude-opus-5-5` | 2027-09-22 | floor |
+| `claude-sonnet-5-5` | `claude-sonnet-5-5` | 2027-09-28 | floor |
 | `claude-opus-4-1` | `claude-opus-4-1-20250805` | 2026-08-05 | retired |
 | `claude-opus-4` | `claude-opus-4-20250514` | 2026-06-15 | retired |
 | `claude-sonnet-4` | `claude-sonnet-4-20250514` | 2026-06-15 | retired |
@@ -180,6 +184,7 @@ Google Gemini API shutdown dates. Source: https://ai.google.dev/gemini-api/docs/
 | `text-embedding-004` | `text-embedding-004` | 2026-01-14 | retired |
 | `embedding-001` | `embedding-001` | 2025-10-30 | retired |
 
+<!-- 2026-09-30: claude-sonnet-4-5-20250929 moved from floor (2026-09-29) to scheduled (2026-11-30) when Anthropic announced its deprecation; recommended replacement claude-sonnet-5-5. -->
 <!-- Not listed: claude-mythos-preview (deprecated 2026-06-09, retirement "to be announced"; no date to compute against). claude-1.x / claude-instant-1.x (retired 2024-11-06) are omitted from both lists as too old to appear in a live codebase; add them if an audit ever meets one. -->
 
 ## Updating this list

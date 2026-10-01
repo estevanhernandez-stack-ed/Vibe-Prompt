@@ -8,10 +8,14 @@ two real positives named in the rubric (audit date 2026-09-22). If the table
 and the rubric's worked examples ever disagree, this fails.
 
 Asserts:
-  1. known-models.md last-updated stamp is 2026-09-22 and cites sources
+  1. known-models.md last-updated stamp is 2026-09-30 and cites sources
   2. Current Anthropic ids + Bedrock form + the three Gemini ids are listed
+  2b. v0.8.1: claude-sonnet-5-5 is Current (+ Bedrock form), claude-sonnet-5
+      is Legacy, and no Haiku 5.x id is listed
   3. Never-published claude-sonnet-4-7 / claude-haiku-4-6 are not list entries
   4. Retirement dates section parses; key rows carry the documented dates
+     (v0.8.1: claude-sonnet-4-5 is scheduled 2026-11-30, claude-sonnet-5-5
+     floor 2027-09-28, claude-sonnet-5 floor 2027-06-30 unchanged)
   5. Severity replay: 6deux6 haiku-4-5 -> medium, ClaudeProvider 3-5-sonnet -> high
   6. Rubric + SKILL wire F6-retiring-model (60-day window, evidence fields)
   7. modelIdExceptions does not suppress F6-retiring-model
@@ -33,6 +37,16 @@ AUDIT_DATE = datetime.date(2026, 9, 22)
 def _bullets(text):
     """Model ids listed as `- `id`` bullet entries (comments excluded)."""
     return set(re.findall(r"^- `([^`]+)`", text, re.M))
+
+
+def _anthropic_group(text, heading):
+    """Bullets under one list heading inside the Anthropic section."""
+    start = text.find("## Anthropic (Claude)")
+    end = text.find("\n## ", start + 1)
+    section = text[start:end]
+    gstart = section.find(heading)
+    gend = section.find("\n\n", section.find("\n- ", gstart) + 1)
+    return _bullets(section[gstart:gend if gend > 0 else len(section)])
 
 
 def _strip(model_id):
@@ -79,12 +93,13 @@ class TestKnownModelsRefresh(unittest.TestCase):
         self.bullets = _bullets(self.text)
 
     def test_last_updated_stamp(self):
-        self.assertIn("**Last-updated:** 2026-09-22", self.text)
+        self.assertIn("**Last-updated:** 2026-09-30", self.text)
 
     def test_sources_cited(self):
         for url in [
-            "https://platform.claude.com/docs/en/about-claude/models/overview",
+            "https://platform.claude.com/docs/en/models/overview",
             "https://platform.claude.com/docs/en/about-claude/model-deprecations",
+            "https://platform.claude.com/docs/en/models/sonnet-5-5/whats-new-sonnet-5-5",
             "https://ai.google.dev/gemini-api/docs/models",
             "https://ai.google.dev/gemini-api/docs/deprecations",
         ]:
@@ -93,10 +108,25 @@ class TestKnownModelsRefresh(unittest.TestCase):
     def test_current_anthropic_ids(self):
         for mid in [
             "claude-opus-5-5", "claude-fable-5-1", "claude-fable-5",
-            "claude-opus-5", "claude-sonnet-5", "claude-opus-4-8",
-            "claude-haiku-4-5", "anthropic.claude-opus-5-5",
+            "claude-opus-5", "claude-sonnet-5-5", "claude-sonnet-5",
+            "claude-opus-4-8", "claude-haiku-4-5",
+            "anthropic.claude-opus-5-5", "anthropic.claude-sonnet-5-5",
         ]:
             self.assertIn(mid, self.bullets, f"{mid} must be a known-models entry")
+
+    def test_sonnet_5_5_is_current_and_sonnet_5_is_legacy(self):
+        current = _anthropic_group(self.text, "Current (models overview")
+        legacy = _anthropic_group(self.text, "Legacy, still available:")
+        self.assertIn("claude-sonnet-5-5", current)
+        self.assertNotIn("claude-sonnet-5", current)
+        self.assertIn("claude-sonnet-5", legacy)
+        self.assertNotIn("claude-sonnet-5-5", legacy)
+
+    def test_no_haiku_5_x_listed(self):
+        # Haiku 4.5 is still the current Haiku on 2026-09-30; a Haiku 5.x id
+        # would be an unpublished entry.
+        for mid in self.bullets:
+            self.assertFalse(mid.startswith("claude-haiku-5"), f"{mid} is not published")
 
     def test_unpublished_ids_removed(self):
         for mid in ["claude-sonnet-4-7", "claude-haiku-4-6"]:
@@ -117,9 +147,11 @@ class TestRetirementTable(unittest.TestCase):
 
     def test_documented_dates(self):
         expected = {
-            "claude-sonnet-4-5": ("2026-09-29", "floor"),
+            "claude-sonnet-4-5": ("2026-11-30", "scheduled"),
             "claude-haiku-4-5": ("2026-10-15", "floor"),
             "claude-opus-4-5": ("2026-11-24", "floor"),
+            "claude-sonnet-5": ("2027-06-30", "floor"),
+            "claude-sonnet-5-5": ("2027-09-28", "floor"),
             "claude-3-5-sonnet": ("2025-10-28", "retired"),
             "claude-opus-4-1": ("2026-08-05", "retired"),
             "gemini-3-pro-preview": ("2026-03-09", "retired"),
@@ -141,6 +173,18 @@ class TestRetirementTable(unittest.TestCase):
         # Opus 4.5 floor is 63 days out on the audit date.
         self.assertIsNone(_severity("claude-opus-4-5-20251101", self.rows))
         self.assertIsNone(_severity("claude-opus-5-5", self.rows))
+        self.assertIsNone(_severity("claude-sonnet-5-5", self.rows))
+
+    def test_sonnet_4_5_scheduled_fires_inside_window(self):
+        # Deprecated 2026-09-30 with retirement 2026-11-30: 61 days out on
+        # the announcement day (no finding), medium once inside 60 days,
+        # high on and after the retirement date.
+        self.assertIsNone(_severity("claude-sonnet-4-5-20250929", self.rows,
+                                    today=datetime.date(2026, 9, 30)))
+        self.assertEqual(_severity("claude-sonnet-4-5-20250929", self.rows,
+                                   today=datetime.date(2026, 10, 1)), "medium")
+        self.assertEqual(_severity("claude-sonnet-4-5-20250929", self.rows,
+                                   today=datetime.date(2026, 11, 30)), "high")
 
     def test_unlisted_no_finding(self):
         self.assertIsNone(_severity("gemini-3.5-flash", self.rows))
