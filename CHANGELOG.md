@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.8.3] — 2026-10-16
+
+### Fixed
+
+- **Commands now load their skills.** A plugin command shadows the skill with the same name, so the slash command loaded only the short command wrapper and the full skill instructions never loaded. Each wrapper now points the agent at its `SKILL.md`.
+
+### Added
+
+- **Static plugin check in CI** (`scripts/check-plugin.js`). Fails on SKILL or command frontmatter that would load with empty metadata, and on a command wrapper that doesn't point at its skill.
+
 ## [0.8.2] — 2026-10-01
 
 Known-models correction. `gemini-3-pro-preview` carried a "retired 2026-03-09" row in `known-models.md` through 0.8.1, so F6-retiring-model fired high on any app pinning it. A live `GET /v1beta/models/gemini-3-pro-preview` on 2026-10-01 returned the model (version `3-pro-preview-11-2025`, `generateContent` supported). The row was wrong.
