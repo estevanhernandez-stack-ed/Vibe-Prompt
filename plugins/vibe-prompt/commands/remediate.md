@@ -2,6 +2,8 @@
 description: Close the audit → fix loop. Reads cached audit + inventory + composer.json; generates per-finding diffs via category-mapped templates; routes by confidence (≥0.90 auto-write with backup, 0.70-0.89 stage, <0.70 inline-only). Supports backup + rollback, F12 handoff, per-finding review. Flags — `--apply-pending <id>`, `--reject-pending <id>`, `--rollback <ISO-timestamp>`, `--interactive`, `--auto-apply`, `--skip-f12`, `--apply-contradictions`, `--apply-voice-frame-fixes` (v0.6+), `--auto-handoff-vibe-sec` (v0.6+), `--apply-inline-to-registry` (v0.7+), `--apply-typed-renderer` (v0.7+), `--apply-model-consolidation` (v0.7+).
 ---
 
+**Load the full instructions first:** read `${CLAUDE_PLUGIN_ROOT}/skills/remediate/SKILL.md` in full and follow it. This file is only the entry point; the skill is the complete instruction set, and this command shadows it, so it will not load on its own.
+
 Invoke the `vibe-prompt:remediate` skill.
 
 v0.6 adds two opt-in flags:
